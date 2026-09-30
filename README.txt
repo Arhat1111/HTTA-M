@@ -1,20 +1,33 @@
-HTTA SUPABASE LOGIN TEST V1
+HTTA GITHUB FULL APP V1
 
-This is intentionally NOT the HTTA management app.
+This is the actual Hauxing Table Tennis Academy management app.
 
-1. Create one owner user under Supabase -> Authentication -> Users.
-2. Auto-confirm the user.
-3. Run START_TEST_MAC.command (or Windows .bat).
-4. Open http://localhost:8080
-5. Press "Test Supabase Connection".
-6. Enter the exact owner email/password.
-7. Press "Sign In".
+UPLOAD TO GITHUB
+1. Extract this ZIP.
+2. Replace your repository's current index.html with this index.html.
+3. Commit.
+4. Wait for GitHub Pages to redeploy.
+5. Open your existing GitHub Pages URL.
+6. Sign in with your confirmed Supabase Auth email/password.
 
-Expected:
-CONNECTION SUCCESS
-then
-LOGIN SUCCESS
+FEATURES
+- Supabase Auth login
+- Dashboard
+- Students
+- 1 / 3 / 12 month plans
+- 30 / 90 / 360 day cycles
+- Pending fee tracking
+- Automatic expired-cycle renewal while the app is opened
+- Payment history
+- Renewal history in Supabase
+- WhatsApp Joining / Fee Schedule / Fee Due messages
+- Manual WhatsApp send via wa.me
+- Message-open history
+- Academy settings
+- Cross-device Supabase data
+- Responsive desktop/mobile layout
 
-If either fails, copy the exact error shown in the box.
-
-There is NO service worker, NO Firebase, NO database code and NO external Supabase JS library in this test.
+IMPORTANT
+- This frontend uses only the Supabase publishable key.
+- Never add a sb_secret or service_role key to GitHub.
+- No service worker is included yet, intentionally, to avoid caching issues while the app stabilizes.

@@ -6,104 +6,619 @@
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>HTTA Supabase Database Test</title>
+<title>Hauxing Table Tennis Academy</title>
 <style>
-:root{--bg:#f6f6f3;--card:#fff;--ink:#111;--muted:#73736f;--line:#d9d9d3}
+:root{
+  --bg:#f5f5f1;--card:#fff;--ink:#111;--muted:#71716b;--line:#d9d9d3;
+  --soft:#f0f0eb;--danger:#8b1e1e;--radius:18px;
+}
 *{box-sizing:border-box}
-body{margin:0;min-height:100vh;background:var(--bg);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink);padding:20px}
-.wrap{width:min(720px,100%);margin:0 auto}
-.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:22px;margin-bottom:14px;box-shadow:0 12px 35px rgba(0,0,0,.05)}
-.logo{width:46px;height:46px;border-radius:13px;background:#111;color:#fff;display:grid;place-items:center;font-weight:900;margin-bottom:14px}
-h1{font-size:25px;letter-spacing:-.7px;margin:0 0 6px} h2{font-size:17px;margin:0 0 12px}
-.sub{font-size:13px;color:var(--muted);line-height:1.5}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-label{font-size:11px;font-weight:800;display:block;margin:12px 0 5px}
-input{width:100%;min-height:46px;border:1px solid #ccc;border-radius:11px;padding:10px 12px;font:inherit;font-size:16px}
-button{min-height:46px;border:1px solid #111;border-radius:11px;padding:10px 13px;font:inherit;font-weight:800;cursor:pointer;background:#fff;color:#111}
-.primary{background:#111;color:#fff}.full{width:100%;margin-top:10px}
-.actions{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-.status{margin-top:12px;border:1px solid var(--line);border-radius:12px;padding:12px;font-size:12px;line-height:1.55;background:#fafaf8;white-space:pre-wrap;overflow-wrap:anywhere}
-.ok{border-color:#888}.err{background:#111;color:#fff;border-color:#111}
-.row{display:grid;grid-template-columns:140px 1fr;gap:10px;padding:7px 0;border-bottom:1px solid #eee;font-size:12px}
-.row:last-child{border-bottom:0}.key{color:var(--muted);font-weight:700}
-.badge{display:inline-flex;padding:5px 8px;border-radius:999px;border:1px solid #bbb;font-size:10px;font-weight:800}
-.hidden{display:none}
-.version{text-align:center;color:var(--muted);font-size:10px;margin-top:12px}
-@media(max-width:650px){body{padding:12px}.card{padding:18px}.grid,.actions{grid-template-columns:1fr}.row{grid-template-columns:1fr;gap:2px}}
+html{background:var(--bg)}
+body{
+  margin:0;min-height:100vh;background:var(--bg);color:var(--ink);
+  font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+button,input,select,textarea{font:inherit}
+button{cursor:pointer}
+.hidden{display:none!important}
+
+/* LOGIN */
+#loginScreen{
+  min-height:100vh;display:grid;place-items:center;padding:18px;
+}
+.login-card{
+  width:min(460px,100%);background:#fff;border:1px solid var(--line);
+  border-radius:24px;padding:26px;box-shadow:0 18px 55px rgba(0,0,0,.08)
+}
+.brandmark{
+  width:50px;height:50px;border-radius:14px;background:#111;color:#fff;
+  display:grid;place-items:center;font-weight:900;font-size:20px;margin-bottom:18px
+}
+h1{font-size:27px;letter-spacing:-.7px;margin:0 0 7px}
+.login-sub{font-size:13px;line-height:1.5;color:var(--muted);margin-bottom:20px}
+label{display:block;font-size:11px;font-weight:800;margin:12px 0 6px}
+input,select,textarea{
+  width:100%;border:1px solid #cecec8;border-radius:11px;background:#fff;
+  min-height:44px;padding:10px 12px;color:#111
+}
+textarea{min-height:84px;resize:vertical}
+input:focus,select:focus,textarea:focus{outline:2px solid #111;outline-offset:1px}
+.btn{
+  border:1px solid #111;border-radius:11px;min-height:42px;padding:9px 12px;
+  background:#fff;color:#111;font-weight:800
+}
+.btn.primary{background:#111;color:#fff}
+.btn.danger{border-color:var(--danger);color:var(--danger)}
+.btn.small{min-height:34px;padding:6px 9px;font-size:11px}
+.btn.full{width:100%}
+.login-status{
+  margin-top:11px;border:1px solid var(--line);border-radius:11px;padding:10px 12px;
+  font-size:12px;line-height:1.5;background:#fafaf8;white-space:pre-wrap
+}
+.login-status.error{background:#111;color:#fff;border-color:#111}
+
+/* APP SHELL */
+#app{min-height:100vh}
+.topbar{
+  position:sticky;top:0;z-index:20;background:rgba(245,245,241,.94);
+  backdrop-filter:blur(12px);border-bottom:1px solid var(--line)
+}
+.topbar-inner{
+  max-width:1280px;margin:0 auto;min-height:70px;padding:10px 22px;
+  display:flex;align-items:center;justify-content:space-between;gap:14px
+}
+.brand{display:flex;align-items:center;gap:11px}
+.brand-logo{
+  width:39px;height:39px;border-radius:11px;background:#111;color:#fff;
+  display:grid;place-items:center;font-weight:900
+}
+.brand-title{font-weight:900;letter-spacing:-.3px}
+.brand-sub{font-size:10px;color:var(--muted);margin-top:2px}
+.top-actions{display:flex;align-items:center;gap:8px}
+.sync-pill{
+  border:1px solid var(--line);border-radius:999px;padding:7px 10px;
+  font-size:10px;font-weight:800;background:#fff
+}
+
+.shell{
+  max-width:1280px;margin:0 auto;display:grid;grid-template-columns:210px 1fr;
+  gap:18px;padding:18px 22px 90px
+}
+.sidebar{
+  position:sticky;top:88px;height:max-content;background:#fff;border:1px solid var(--line);
+  border-radius:18px;padding:10px
+}
+.navbtn{
+  width:100%;border:0;background:transparent;border-radius:10px;padding:11px 12px;
+  text-align:left;font-weight:800;color:#565650;margin:2px 0
+}
+.navbtn.active{background:#111;color:#fff}
+.main{min-width:0}
+.page{display:none}
+.page.active{display:block}
+.page-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin:3px 0 16px}
+.page-title{font-size:27px;font-weight:900;letter-spacing:-.8px}
+.page-sub{font-size:12px;color:var(--muted);margin-top:4px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+
+/* CARDS */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}
+.kpi{
+  background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px
+}
+.kpi-label{font-size:10px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.5px}
+.kpi-value{font-size:27px;font-weight:900;letter-spacing:-.8px;margin-top:6px}
+.kpi-note{font-size:10px;color:var(--muted);margin-top:3px}
+.card{
+  background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:12px
+}
+.card-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}
+.card-title{font-size:15px;font-weight:900}
+.muted{color:var(--muted)}
+.smalltext{font-size:11px}
+
+/* TABLES */
+.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:14px}
+table{width:100%;border-collapse:collapse;min-width:900px;background:#fff}
+th,td{padding:10px 11px;border-bottom:1px solid #ededE8;text-align:left;font-size:11px;vertical-align:top}
+th{font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);background:#fafaf7}
+tr:last-child td{border-bottom:0}
+.status{
+  display:inline-flex;padding:5px 8px;border:1px solid #bbb;border-radius:999px;
+  font-size:9px;font-weight:900;white-space:nowrap
+}
+.status.due{background:#111;color:#fff;border-color:#111}
+.status.paid{background:#f4f4ef}
+.status.inactive{opacity:.55}
+.row-actions{display:flex;gap:5px;flex-wrap:wrap}
+
+/* MOBILE STUDENT CARDS */
+.mobile-list{display:none}
+.student-card{
+  background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:10px
+}
+.student-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.student-name{font-size:16px;font-weight:900}
+.student-meta{font-size:11px;color:var(--muted);line-height:1.55;margin-top:7px}
+.student-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:11px}
+.data-box{background:#f7f7f3;border-radius:10px;padding:9px}
+.data-label{font-size:9px;color:var(--muted);font-weight:800;text-transform:uppercase}
+.data-val{font-size:12px;font-weight:800;margin-top:3px}
+.student-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:11px}
+
+/* FORMS / MODAL */
+.modal{
+  position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.32);
+  display:none;align-items:center;justify-content:center;padding:18px
+}
+.modal.open{display:flex}
+.modal-card{
+  width:min(720px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:22px;
+  border:1px solid var(--line);padding:18px;box-shadow:0 24px 70px rgba(0,0,0,.22)
+}
+.modal-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
+.modal-title{font-size:18px;font-weight:900}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+.checkline{display:flex;gap:9px;align-items:center;margin-top:13px;font-size:12px;font-weight:700}
+.checkline input{width:auto;min-height:auto}
+.note{
+  background:#f6f6f2;border:1px solid var(--line);border-radius:11px;padding:10px 12px;
+  font-size:11px;line-height:1.5;color:#555
+}
+
+/* BOTTOM NAV */
+.bottom-nav{display:none}
+.empty{padding:30px;text-align:center;color:var(--muted);font-size:12px}
+
+/* TOAST */
+#toast{
+  position:fixed;right:18px;bottom:18px;z-index:200;background:#111;color:#fff;
+  border-radius:12px;padding:11px 14px;font-size:11px;font-weight:800;
+  opacity:0;transform:translateY(8px);pointer-events:none;transition:.2s
+}
+#toast.show{opacity:1;transform:translateY(0)}
+
+@media(max-width:980px){
+  .shell{grid-template-columns:1fr;padding:14px 14px 92px}
+  .sidebar{display:none}
+  .kpi-grid{grid-template-columns:1fr 1fr}
+  .bottom-nav{
+    display:grid;grid-template-columns:repeat(5,1fr);position:fixed;z-index:50;
+    left:0;right:0;bottom:0;background:rgba(255,255,255,.96);
+    backdrop-filter:blur(12px);border-top:1px solid var(--line);
+    padding:6px max(6px,env(safe-area-inset-left)) calc(6px + env(safe-area-inset-bottom)) max(6px,env(safe-area-inset-right))
+  }
+  .bottom-nav button{
+    border:0;background:transparent;border-radius:9px;padding:7px 2px;font-size:9px;font-weight:900;color:#777
+  }
+  .bottom-nav button.active{background:#111;color:#fff}
+}
+@media(max-width:720px){
+  .topbar-inner{padding:9px 13px;min-height:62px}
+  .brand-sub,.sync-pill{display:none}
+  .page-head{align-items:flex-start;flex-direction:column}
+  .page-title{font-size:24px}
+  .kpi-grid{grid-template-columns:1fr 1fr;gap:8px}
+  .kpi{padding:13px}.kpi-value{font-size:23px}
+  .desktop-table{display:none}
+  .mobile-list{display:block}
+  .form-grid{grid-template-columns:1fr}
+  .modal{align-items:flex-end;padding:0}
+  .modal-card{width:100%;max-height:94vh;border-radius:22px 22px 0 0;padding-bottom:calc(18px + env(safe-area-inset-bottom))}
+  .top-actions .btn{display:none}
+  .student-actions{grid-template-columns:1fr 1fr}
+}
 </style>
 </head>
 <body>
-<div class="wrap">
 
-  <div class="card">
-    <div class="logo">H</div>
-    <h1>HTTA Database Test</h1>
-    <div class="sub">
-      Step 3: verify authentication + Row Level Security + CRUD access to the new <b>students</b> table.
-      This is still only a test page, not the final HTTA app.
-    </div>
+<!-- LOGIN -->
+<section id="loginScreen">
+  <div class="login-card">
+    <div class="brandmark">H</div>
+    <h1>Hauxing Admin Login</h1>
+    <div class="login-sub">Secure access to students, fees, renewals and WhatsApp reminders.</div>
+
+    <form id="loginForm">
+      <label>Owner Email</label>
+      <input id="loginEmail" type="email" autocomplete="username" required>
+
+      <label>Password</label>
+      <input id="loginPassword" type="password" autocomplete="current-password" required>
+
+      <button class="btn primary full" style="margin-top:15px" type="submit">Login</button>
+      <div id="loginStatus" class="login-status">Use a confirmed Supabase Auth user.</div>
+    </form>
   </div>
+</section>
 
-  <div class="card">
-    <h2>1. Owner Login</h2>
-    <div class="grid">
-      <div>
-        <label>Email</label>
-        <input id="email" type="email" autocomplete="username" placeholder="owner@example.com">
+<!-- APP -->
+<div id="app" class="hidden">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="brand-logo">H</div>
+        <div>
+          <div class="brand-title" id="brandTitle">Hauxing Table Tennis Academy</div>
+          <div class="brand-sub">Cloud fee & student management</div>
+        </div>
       </div>
-      <div>
-        <label>Password</label>
-        <input id="password" type="password" autocomplete="current-password">
+      <div class="top-actions">
+        <div id="syncPill" class="sync-pill">Cloud connected</div>
+        <button class="btn small" onclick="loadAll(true)">Refresh</button>
+        <button class="btn small" onclick="logout()">Logout</button>
       </div>
     </div>
-    <button class="primary full" onclick="login()">Sign In</button>
-    <div id="authStatus" class="status">Not signed in.</div>
+  </header>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <button class="navbtn active" data-page="dashboard" onclick="go('dashboard')">Dashboard</button>
+      <button class="navbtn" data-page="students" onclick="go('students')">Students</button>
+      <button class="navbtn" data-page="fees" onclick="go('fees')">Fees</button>
+      <button class="navbtn" data-page="messages" onclick="go('messages')">WhatsApp</button>
+      <button class="navbtn" data-page="settings" onclick="go('settings')">Settings</button>
+    </aside>
+
+    <main class="main">
+
+      <!-- DASHBOARD -->
+      <section id="page-dashboard" class="page active">
+        <div class="page-head">
+          <div>
+            <div class="page-title">Dashboard</div>
+            <div class="page-sub">Academy overview and current fee status.</div>
+          </div>
+          <div class="actions">
+            <button class="btn primary" onclick="openStudentModal()">+ Add Student</button>
+          </div>
+        </div>
+
+        <div class="kpi-grid">
+          <div class="kpi">
+            <div class="kpi-label">Active Students</div>
+            <div class="kpi-value" id="kpiStudents">0</div>
+            <div class="kpi-note">currently active</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">Pending Fees</div>
+            <div class="kpi-value" id="kpiPending">₹0</div>
+            <div class="kpi-note">total outstanding</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">Due Soon</div>
+            <div class="kpi-value" id="kpiDueSoon">0</div>
+            <div class="kpi-note">within reminder window</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">Payments</div>
+            <div class="kpi-value" id="kpiPayments">₹0</div>
+            <div class="kpi-note">recorded total</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div class="card-title">Attention Needed</div>
+            <div class="smalltext muted">Pending or near cycle end</div>
+          </div>
+          <div id="attentionList"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div class="card-title">Recent Payments</div>
+          </div>
+          <div id="recentPayments"></div>
+        </div>
+      </section>
+
+      <!-- STUDENTS -->
+      <section id="page-students" class="page">
+        <div class="page-head">
+          <div>
+            <div class="page-title">Students</div>
+            <div class="page-sub">Manage student details, batches and fee cycles.</div>
+          </div>
+          <div class="actions">
+            <button class="btn primary" onclick="openStudentModal()">+ Add Student</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div style="display:grid;grid-template-columns:1fr 180px;gap:8px">
+            <input id="studentSearch" placeholder="Search students, coach, phone…" oninput="renderStudents()">
+            <select id="studentFilter" onchange="renderStudents()">
+              <option value="all">All students</option>
+              <option value="pending">Pending fees</option>
+              <option value="paid">Paid</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="desktop-table">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Student</th><th>Coach / Batch</th><th>Plan</th><th>Fee Status</th>
+                  <th>Current Cycle</th><th>Pending</th><th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="studentsTbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div id="studentsMobile" class="mobile-list"></div>
+      </section>
+
+      <!-- FEES -->
+      <section id="page-fees" class="page">
+        <div class="page-head">
+          <div>
+            <div class="page-title">Fees</div>
+            <div class="page-sub">Outstanding amounts and payment history.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><div class="card-title">Pending Fees</div></div>
+          <div id="pendingFees"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><div class="card-title">Payment History</div></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Date</th><th>Student</th><th>Plan</th><th>Period</th><th>Amount</th><th>Method</th><th>Notes</th></tr></thead>
+              <tbody id="paymentsTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- WHATSAPP -->
+      <section id="page-messages" class="page">
+        <div class="page-head">
+          <div>
+            <div class="page-title">WhatsApp</div>
+            <div class="page-sub">One-tap manual parent messages. Opening WhatsApp is logged; sending cannot be verified.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><div class="card-title">Message Center</div></div>
+          <div id="messageCenter"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><div class="card-title">Message History</div></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Opened</th><th>Student</th><th>Type</th><th>Phone</th><th>Status</th></tr></thead>
+              <tbody id="messagesTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- SETTINGS -->
+      <section id="page-settings" class="page">
+        <div class="page-head">
+          <div>
+            <div class="page-title">Settings</div>
+            <div class="page-sub">Academy defaults stored in Supabase.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="form-grid">
+            <div>
+              <label>Academy Name</label>
+              <input id="setAcademyName">
+            </div>
+            <div>
+              <label>Default Monthly Fee</label>
+              <input id="setDefaultFee" type="number" min="0" step="0.01">
+            </div>
+            <div>
+              <label>Reminder Lead Days</label>
+              <input id="setLeadDays" type="number" min="0" max="30">
+            </div>
+            <div>
+              <label>Coaches (comma separated)</label>
+              <input id="setCoaches">
+            </div>
+          </div>
+          <div class="form-actions">
+            <button class="btn primary" onclick="saveSettings()">Save Settings</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Cloud Database</div>
+          <div class="note" style="margin-top:10px">
+            Supabase is the permanent master database. This app refreshes from the cloud automatically while open.
+            Do not put any Supabase secret/service-role key in this frontend.
+          </div>
+          <div class="actions" style="margin-top:12px">
+            <button class="btn" onclick="loadAll(true)">Load Latest Data</button>
+            <button class="btn" onclick="logout()">Sign Out</button>
+          </div>
+        </div>
+      </section>
+
+    </main>
   </div>
 
-  <div id="databaseCard" class="card hidden">
-    <h2>2. Supabase Database Test</h2>
-    <div class="sub">
-      These buttons use your authenticated access token. Anonymous visitors should not be able to perform these actions.
-    </div>
-
-    <div class="actions" style="margin-top:14px">
-      <button onclick="createTestStudent()">A. Create</button>
-      <button onclick="readTestStudent()">B. Read</button>
-      <button onclick="updateTestStudent()">C. Update</button>
-      <button onclick="deleteTestStudent()">D. Delete</button>
-    </div>
-
-    <button class="primary full" onclick="runFullTest()">Run Complete CRUD Test</button>
-
-    <div id="dbStatus" class="status">Ready for database test.</div>
-  </div>
-
-  <div id="recordCard" class="card hidden">
-    <h2>Current Test Record</h2>
-    <div class="row"><span class="key">Student ID</span><span id="rid">—</span></div>
-    <div class="row"><span class="key">Student Name</span><span id="rname">—</span></div>
-    <div class="row"><span class="key">Parent Phone</span><span id="rphone">—</span></div>
-    <div class="row"><span class="key">Coach</span><span id="rcoach">—</span></div>
-    <div class="row"><span class="key">Batch</span><span id="rbatch">—</span></div>
-    <div class="row"><span class="key">Plan</span><span id="rplan">—</span></div>
-    <div class="row"><span class="key">Monthly Fee</span><span id="rfee">—</span></div>
-  </div>
-
-  <div class="version">HTTA Database Test v1 • Direct Supabase REST • GitHub Pages ready • No service worker</div>
+  <nav class="bottom-nav">
+    <button class="active" data-page="dashboard" onclick="go('dashboard')">Dashboard</button>
+    <button data-page="students" onclick="go('students')">Students</button>
+    <button data-page="fees" onclick="go('fees')">Fees</button>
+    <button data-page="messages" onclick="go('messages')">WhatsApp</button>
+    <button data-page="settings" onclick="go('settings')">Settings</button>
+  </nav>
 </div>
+
+<!-- STUDENT MODAL -->
+<div id="studentModal" class="modal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div class="modal-title" id="studentModalTitle">Add Student</div>
+      <button class="btn small" onclick="closeModal('studentModal')">Close</button>
+    </div>
+
+    <input id="studentId" type="hidden">
+    <div class="form-grid">
+      <div>
+        <label>Student Name *</label>
+        <input id="fName">
+      </div>
+      <div>
+        <label>Parent WhatsApp *</label>
+        <input id="fPhone" placeholder="10-digit Indian number or full country code">
+      </div>
+      <div>
+        <label>Coach *</label>
+        <select id="fCoach"></select>
+      </div>
+      <div>
+        <label>Batch Timing</label>
+        <input id="fBatch" placeholder="e.g. 6:00 PM - 7:00 PM">
+      </div>
+      <div>
+        <label>Joining / Cycle Start *</label>
+        <input id="fJoin" type="date">
+      </div>
+      <div>
+        <label>Fee Plan *</label>
+        <select id="fPlan" onchange="updateStudentPreview()">
+          <option value="1">1 Month (30 days)</option>
+          <option value="3">3 Months (90 days)</option>
+          <option value="12">12 Months (360 days)</option>
+        </select>
+      </div>
+      <div>
+        <label>Monthly Fee *</label>
+        <input id="fMonthlyFee" type="number" min="0" step="0.01" oninput="updateStudentPreview()">
+      </div>
+      <div>
+        <label>Fee Paid?</label>
+        <select id="fFeePaid" onchange="updateStudentPreview()">
+          <option value="false">No</option>
+          <option value="true">Yes</option>
+        </select>
+      </div>
+    </div>
+
+    <label>Notes</label>
+    <textarea id="fNotes"></textarea>
+
+    <div class="checkline">
+      <input id="fActive" type="checkbox" checked>
+      <span>Student is active</span>
+    </div>
+
+    <div id="studentPreview" class="note" style="margin-top:13px"></div>
+
+    <div class="form-actions">
+      <button class="btn" onclick="closeModal('studentModal')">Cancel</button>
+      <button class="btn primary" onclick="saveStudent()">Save Student</button>
+    </div>
+  </div>
+</div>
+
+<!-- PAYMENT MODAL -->
+<div id="paymentModal" class="modal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div class="modal-title">Record Payment</div>
+      <button class="btn small" onclick="closeModal('paymentModal')">Close</button>
+    </div>
+
+    <input id="payStudentId" type="hidden">
+    <div id="payStudentSummary" class="note"></div>
+
+    <div class="form-grid">
+      <div>
+        <label>Payment Date</label>
+        <input id="payDate" type="date">
+      </div>
+      <div>
+        <label>Amount</label>
+        <input id="payAmount" type="number" min="0" step="0.01">
+      </div>
+      <div>
+        <label>Method</label>
+        <select id="payMethod">
+          <option>Cash</option>
+          <option>UPI</option>
+          <option>Bank Transfer</option>
+          <option>Card</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div>
+        <label>Notes</label>
+        <input id="payNotes">
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button class="btn" onclick="closeModal('paymentModal')">Cancel</button>
+      <button class="btn primary" onclick="recordPayment()">Save Payment</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
 
 <script>
 const SUPABASE_URL='https://bozqsfgcnlktiskahnno.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_4TZTKFKYqd0cFBGbRHUTVQ_ty4EEi1Y';
+const SESSION_KEY='htta_session_v1';
 
-let accessToken=null;
-let currentUser=null;
-let testStudentId=null;
+let session=null;
+let state={
+  settings:{id:1,academy_name:'Hauxing Table Tennis Academy',default_monthly_fee:3000,reminder_lead_days:2,coaches:['Coach 1','Coach 2']},
+  students:[],payments:[],renewals:[],messages:[]
+};
+let pollTimer=null;
+let loading=false;
 
-function setBox(id,msg,type=''){
-  const el=document.getElementById(id);
-  el.textContent=msg;
-  el.className='status'+(type?' '+type:'');
+function toast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'),2200);
+}
+function money(v){return '₹'+Number(v||0).toLocaleString('en-IN',{maximumFractionDigits:2})}
+function todayISO(){return new Date().toISOString().slice(0,10)}
+function dateOnly(s){return s?String(s).slice(0,10):''}
+function parseDate(s){return new Date(String(s)+'T12:00:00')}
+function addDays(s,n){
+  const d=parseDate(s); d.setDate(d.getDate()+Number(n)); return d.toISOString().slice(0,10)
+}
+function daysBetween(a,b){
+  const A=parseDate(a),B=parseDate(b);
+  return Math.round((B-A)/86400000)
+}
+function planDays(months){return Number(months||1)*30}
+function cycleEnd(start,months){return addDays(start,planDays(months)-1)}
+function planAmount(student){return Number(student.monthly_fee||0)*Number(student.plan_months||1)}
+function formatDate(s){
+  if(!s)return '—';
+  try{return parseDate(dateOnly(s)).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}catch(e){return s}
+}
+function escapeHtml(v){
+  return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))
+}
+function statusText(s){
+  if(!s.active)return {label:'Inactive',cls:'inactive'};
+  if(Number(s.pending_amount||0)>0)return {label:'Pending',cls:'due'};
+  return {label:'Paid',cls:'paid'};
 }
 
 async function raw(path,{method='GET',body,token,prefer}={}){
@@ -115,19 +630,14 @@ async function raw(path,{method='GET',body,token,prefer}={}){
   let res;
   try{
     res=await fetch(SUPABASE_URL+path,{
-      method,
-      headers,
-      body:body===undefined?undefined:JSON.stringify(body),
-      cache:'no-store'
+      method,headers,cache:'no-store',
+      body:body===undefined?undefined:JSON.stringify(body)
     });
-  }catch(e){
-    throw new Error('Network error: '+e.message);
-  }
+  }catch(e){throw new Error('Network error: '+e.message)}
 
-  const text=await res.text();
+  const txt=await res.text();
   let data=null;
-  try{data=text?JSON.parse(text):null}catch(e){data=text}
-
+  try{data=txt?JSON.parse(txt):null}catch(e){data=txt}
   if(!res.ok){
     const msg=data?.message||data?.msg||data?.error_description||data?.error||('HTTP '+res.status);
     const code=data?.code||data?.error_code||'';
@@ -135,225 +645,563 @@ async function raw(path,{method='GET',body,token,prefer}={}){
   }
   return data;
 }
-
-async function login(){
-  const email=document.getElementById('email').value.trim().toLowerCase();
-  const password=document.getElementById('password').value;
-  setBox('authStatus','Signing in…');
-
+function saveSession(s){
+  session=s||null;
+  if(session)localStorage.setItem(SESSION_KEY,JSON.stringify(session));
+  else localStorage.removeItem(SESSION_KEY);
+}
+function loadSession(){
+  try{return JSON.parse(localStorage.getItem(SESSION_KEY)||'null')}catch(e){return null}
+}
+async function refreshSession(){
+  if(!session?.refresh_token)return false;
   try{
-    const auth=await raw('/auth/v1/token?grant_type=password',{
-      method:'POST',
-      body:{email,password}
+    const data=await raw('/auth/v1/token?grant_type=refresh_token',{
+      method:'POST',body:{refresh_token:session.refresh_token}
     });
-
-    accessToken=auth.access_token;
-    currentUser=auth.user;
-
-    setBox(
-      'authStatus',
-      'LOGIN SUCCESS\n'+
-      'Email: '+(currentUser?.email||'—')+'\n'+
-      'User ID: '+(currentUser?.id||'—')+'\n'+
-      'Authenticated database access is now enabled.',
-      'ok'
-    );
-
-    document.getElementById('databaseCard').classList.remove('hidden');
-  }catch(e){
-    accessToken=null;
-    currentUser=null;
-    document.getElementById('databaseCard').classList.add('hidden');
-    setBox('authStatus','LOGIN FAILED\n'+e.message,'err');
+    session={...data,expires_at:Math.floor(Date.now()/1000)+Number(data.expires_in||3600)};
+    saveSession(session); return true;
+  }catch(e){saveSession(null);return false}
+}
+async function validToken(){
+  if(!session)return null;
+  const now=Math.floor(Date.now()/1000);
+  if(session.expires_at && Number(session.expires_at)<now+90){
+    const ok=await refreshSession(); if(!ok)return null;
   }
+  return session.access_token||null;
+}
+async function db(table,{method='GET',query='',body,prefer}={}){
+  const token=await validToken();
+  if(!token)throw new Error('Session expired. Please log in again.');
+  return raw('/rest/v1/'+table+query,{method,body,token,prefer});
 }
 
-function mustLogin(){
-  if(!accessToken)throw new Error('Sign in first.');
-}
-
-function sampleStudent(updated=false){
-  return {
-    student_name: updated ? 'HTTA Supabase Test - Updated' : 'HTTA Supabase Test',
-    parent_phone:'919999999999',
-    coach:'Coach 1',
-    batch_timing:updated ? '6:00 PM - 7:00 PM' : '5:00 PM - 6:00 PM',
-    joining_date:'2026-09-30',
-    plan_months:1,
-    monthly_fee:3000,
-    fee_paid:false,
-    cycle_start:'2026-09-30',
-    cycle_end:'2026-10-29',
-    pending_amount:3000,
-    pending_cycles:1,
-    notes:'Temporary CRUD test record. Safe to delete.',
-    active:true
-  };
-}
-
-function showRecord(r){
-  if(!r){
-    document.getElementById('recordCard').classList.add('hidden');
-    return;
-  }
-  document.getElementById('recordCard').classList.remove('hidden');
-  document.getElementById('rid').textContent=r.id||'—';
-  document.getElementById('rname').textContent=r.student_name||'—';
-  document.getElementById('rphone').textContent=r.parent_phone||'—';
-  document.getElementById('rcoach').textContent=r.coach||'—';
-  document.getElementById('rbatch').textContent=r.batch_timing||'—';
-  document.getElementById('rplan').textContent=(r.plan_months||'—')+' month';
-  document.getElementById('rfee').textContent='₹'+Number(r.monthly_fee||0).toLocaleString('en-IN');
-}
-
-async function createTestStudent(){
+document.getElementById('loginForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const email=document.getElementById('loginEmail').value.trim().toLowerCase();
+  const password=document.getElementById('loginPassword').value;
+  const st=document.getElementById('loginStatus');
+  st.textContent='Signing in…'; st.className='login-status';
   try{
-    mustLogin();
-
-    if(testStudentId){
-      setBox('dbStatus','A test student already exists in this session. Delete it first or run Read.','err');
-      return null;
-    }
-
-    setBox('dbStatus','Creating temporary student in Supabase…');
-
-    const rows=await raw('/rest/v1/students',{
-      method:'POST',
-      token:accessToken,
-      body:sampleStudent(false),
-      prefer:'return=representation'
-    });
-
-    const r=Array.isArray(rows)?rows[0]:rows;
-    if(!r?.id)throw new Error('Insert succeeded but no student ID was returned.');
-
-    testStudentId=r.id;
-    showRecord(r);
-    setBox('dbStatus','CREATE SUCCESS\nStudent saved permanently in Supabase.\nID: '+r.id,'ok');
-    return r;
-  }catch(e){
-    setBox('dbStatus','CREATE FAILED\n'+e.message,'err');
-    throw e;
+    const auth=await raw('/auth/v1/token?grant_type=password',{method:'POST',body:{email,password}});
+    session={...auth,expires_at:Math.floor(Date.now()/1000)+Number(auth.expires_in||3600)};
+    saveSession(session);
+    await enterApp();
+  }catch(err){
+    st.textContent='Login failed\\n'+err.message;
+    st.className='login-status error';
   }
+});
+
+async function enterApp(){
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  await loadAll(true);
+  startPolling();
+}
+async function logout(){
+  try{
+    if(session?.access_token)await raw('/auth/v1/logout',{method:'POST',token:session.access_token});
+  }catch(e){}
+  stopPolling(); saveSession(null);
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('loginScreen').classList.remove('hidden');
+  document.getElementById('loginPassword').value='';
+}
+function setSync(text){
+  document.getElementById('syncPill').textContent=text;
+}
+function startPolling(){
+  stopPolling();
+  pollTimer=setInterval(()=>{if(!document.hidden)loadAll(false)},10000);
+}
+function stopPolling(){if(pollTimer){clearInterval(pollTimer);pollTimer=null}}
+
+async function loadAll(showToast=false){
+  if(loading)return;
+  loading=true; setSync('Syncing…');
+  try{
+    const [settings,students,payments,renewals,messages]=await Promise.all([
+      db('academy_settings',{query:'?select=*&id=eq.1'}),
+      db('students',{query:'?select=*&order=student_name.asc'}),
+      db('payments',{query:'?select=*&order=payment_date.desc,created_at.desc'}),
+      db('renewals',{query:'?select=*&order=created_at.desc'}),
+      db('message_logs',{query:'?select=*&order=created_at.desc'})
+    ]);
+    if(settings?.[0])state.settings=settings[0];
+    state.students=students||[];
+    state.payments=payments||[];
+    state.renewals=renewals||[];
+    state.messages=messages||[];
+
+    await reconcileExpiredCycles();
+    renderAll();
+    setSync('Cloud synced');
+    if(showToast)toast('Latest Supabase data loaded');
+  }catch(e){
+    setSync('Sync failed');
+    if(/expired|jwt|session/i.test(e.message)){logout();return}
+    toast('Sync error: '+e.message);
+  }finally{loading=false}
 }
 
-async function readTestStudent(){
-  try{
-    mustLogin();
-    if(!testStudentId)throw new Error('Create the test student first.');
+async function reconcileExpiredCycles(){
+  const today=todayISO();
+  let changed=false;
 
-    setBox('dbStatus','Reading student back from Supabase…');
+  for(const s of [...state.students]){
+    if(!s.active || !s.cycle_end)continue;
 
-    const rows=await raw(
-      '/rest/v1/students?select=*&id=eq.'+encodeURIComponent(testStudentId),
-      {token:accessToken}
-    );
+    let working={...s};
+    let safety=0;
 
-    if(!Array.isArray(rows)||!rows.length)throw new Error('Student was not found.');
+    while(dateOnly(working.cycle_end)<today && safety<24){
+      safety++;
+      const oldStart=dateOnly(working.cycle_start);
+      const oldEnd=dateOnly(working.cycle_end);
+      const newStart=addDays(oldEnd,1);
+      const newEnd=cycleEnd(newStart,working.plan_months);
+      const amount=planAmount(working);
+      const newPending=Number(working.pending_amount||0)+amount;
+      const newCycles=Number(working.pending_cycles||0)+1;
 
-    showRecord(rows[0]);
-    setBox('dbStatus','READ SUCCESS\nThe same record was retrieved from Supabase.','ok');
-    return rows[0];
-  }catch(e){
-    setBox('dbStatus','READ FAILED\n'+e.message,'err');
-    throw e;
-  }
-}
-
-async function updateTestStudent(){
-  try{
-    mustLogin();
-    if(!testStudentId)throw new Error('Create the test student first.');
-
-    setBox('dbStatus','Updating test student…');
-
-    const rows=await raw(
-      '/rest/v1/students?id=eq.'+encodeURIComponent(testStudentId),
-      {
+      const rows=await db('students',{
         method:'PATCH',
-        token:accessToken,
+        query:'?id=eq.'+encodeURIComponent(working.id)+'&cycle_end=eq.'+encodeURIComponent(oldEnd),
         body:{
-          student_name:'HTTA Supabase Test - Updated',
-          batch_timing:'6:00 PM - 7:00 PM',
-          notes:'CRUD update successful.'
+          cycle_start:newStart,
+          cycle_end:newEnd,
+          pending_amount:newPending,
+          pending_cycles:newCycles,
+          fee_paid:false
         },
         prefer:'return=representation'
-      }
-    );
+      });
 
-    const r=Array.isArray(rows)?rows[0]:rows;
-    if(!r)throw new Error('Update returned no record.');
+      if(!Array.isArray(rows)||!rows.length)break;
 
-    showRecord(r);
-    setBox('dbStatus','UPDATE SUCCESS\nSupabase saved the edited student.','ok');
-    return r;
-  }catch(e){
-    setBox('dbStatus','UPDATE FAILED\n'+e.message,'err');
-    throw e;
-  }
-}
+      working=rows[0];
+      changed=true;
 
-async function deleteTestStudent(){
-  try{
-    mustLogin();
-    if(!testStudentId)throw new Error('There is no test student to delete.');
-
-    const id=testStudentId;
-    setBox('dbStatus','Deleting temporary test student…');
-
-    await raw(
-      '/rest/v1/students?id=eq.'+encodeURIComponent(id),
-      {
-        method:'DELETE',
-        token:accessToken,
+      await db('renewals',{
+        method:'POST',
+        body:{
+          student_id:working.id,
+          old_start:oldStart,
+          old_end:oldEnd,
+          new_start:newStart,
+          new_end:newEnd,
+          plan_months:Number(working.plan_months),
+          amount_added:amount
+        },
         prefer:'return=minimal'
-      }
-    );
+      });
+    }
+  }
 
-    testStudentId=null;
-    showRecord(null);
-    setBox('dbStatus','DELETE SUCCESS\nTemporary test record was removed from Supabase.\nDatabase CRUD test is complete.','ok');
+  if(changed){
+    state.students=await db('students',{query:'?select=*&order=student_name.asc'});
+    state.renewals=await db('renewals',{query:'?select=*&order=created_at.desc'});
+  }
+}
+
+function go(page){
+  document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  document.querySelectorAll('[data-page]').forEach(x=>x.classList.toggle('active',x.dataset.page===page));
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function renderAll(){
+  document.getElementById('brandTitle').textContent=state.settings.academy_name||'Hauxing Table Tennis Academy';
+  renderDashboard(); renderStudents(); renderFees(); renderMessages(); renderSettings();
+}
+function renderDashboard(){
+  const active=state.students.filter(s=>s.active);
+  const pending=active.reduce((a,s)=>a+Number(s.pending_amount||0),0);
+  const lead=Number(state.settings.reminder_lead_days||2);
+  const today=todayISO();
+  const dueSoon=active.filter(s=>{
+    const d=daysBetween(today,dateOnly(s.cycle_end));
+    return d>=0 && d<=lead;
+  }).length;
+  const payTotal=state.payments.reduce((a,p)=>a+Number(p.amount||0),0);
+
+  document.getElementById('kpiStudents').textContent=active.length;
+  document.getElementById('kpiPending').textContent=money(pending);
+  document.getElementById('kpiDueSoon').textContent=dueSoon;
+  document.getElementById('kpiPayments').textContent=money(payTotal);
+
+  const attention=active
+    .filter(s=>Number(s.pending_amount||0)>0 || daysBetween(today,dateOnly(s.cycle_end))<=lead)
+    .slice(0,8);
+
+  const box=document.getElementById('attentionList');
+  if(!attention.length)box.innerHTML='<div class="empty">Nothing needs attention right now.</div>';
+  else box.innerHTML=attention.map(s=>`
+    <div style="display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid #eee">
+      <div>
+        <div style="font-weight:900">${escapeHtml(s.student_name)}</div>
+        <div class="smalltext muted">${escapeHtml(s.coach)} • ${escapeHtml(s.batch_timing||'No batch')} • ends ${formatDate(s.cycle_end)}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-weight:900">${money(s.pending_amount)}</div>
+        <button class="btn small" onclick="openPayment('${s.id}')">Payment</button>
+      </div>
+    </div>
+  `).join('');
+
+  const recent=state.payments.slice(0,5);
+  document.getElementById('recentPayments').innerHTML=recent.length?recent.map(p=>{
+    const s=state.students.find(x=>x.id===p.student_id);
+    return `<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #eee">
+      <div><b>${escapeHtml(s?.student_name||'Student')}</b><div class="smalltext muted">${formatDate(p.payment_date)} • ${escapeHtml(p.payment_method||'')}</div></div>
+      <b>${money(p.amount)}</b>
+    </div>`;
+  }).join(''):'<div class="empty">No payments recorded yet.</div>';
+}
+
+function filteredStudents(){
+  const q=(document.getElementById('studentSearch')?.value||'').trim().toLowerCase();
+  const f=document.getElementById('studentFilter')?.value||'all';
+  return state.students.filter(s=>{
+    const hay=[s.student_name,s.parent_phone,s.coach,s.batch_timing].join(' ').toLowerCase();
+    if(q && !hay.includes(q))return false;
+    if(f==='pending' && Number(s.pending_amount||0)<=0)return false;
+    if(f==='paid' && Number(s.pending_amount||0)>0)return false;
+    if(f==='active' && !s.active)return false;
+    if(f==='inactive' && s.active)return false;
     return true;
-  }catch(e){
-    setBox('dbStatus','DELETE FAILED\n'+e.message,'err');
-    throw e;
-  }
+  });
+}
+function renderStudents(){
+  const rows=filteredStudents();
+  const tbody=document.getElementById('studentsTbody');
+  tbody.innerHTML=rows.map(s=>{
+    const st=statusText(s);
+    return `<tr>
+      <td><b>${escapeHtml(s.student_name)}</b><br><span class="muted">${escapeHtml(s.parent_phone)}</span></td>
+      <td>${escapeHtml(s.coach)}<br><span class="muted">${escapeHtml(s.batch_timing||'—')}</span></td>
+      <td>${s.plan_months} mo<br><span class="muted">${money(s.monthly_fee)}/mo</span></td>
+      <td><span class="status ${st.cls}">${st.label}</span></td>
+      <td>${formatDate(s.cycle_start)}<br><span class="muted">to ${formatDate(s.cycle_end)}</span></td>
+      <td><b>${money(s.pending_amount)}</b></td>
+      <td><div class="row-actions">
+        <button class="btn small" onclick="editStudent('${s.id}')">Edit</button>
+        <button class="btn small" onclick="openPayment('${s.id}')">Payment</button>
+        <button class="btn small" onclick="sendWhatsApp('${s.id}','fee_due')">WhatsApp</button>
+        <button class="btn small danger" onclick="deleteStudent('${s.id}')">Delete</button>
+      </div></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="7" class="empty">No matching students.</td></tr>';
+
+  document.getElementById('studentsMobile').innerHTML=rows.map(s=>{
+    const st=statusText(s);
+    return `<div class="student-card">
+      <div class="student-top">
+        <div><div class="student-name">${escapeHtml(s.student_name)}</div><div class="student-meta">${escapeHtml(s.parent_phone)}<br>${escapeHtml(s.coach)} • ${escapeHtml(s.batch_timing||'No batch')}</div></div>
+        <span class="status ${st.cls}">${st.label}</span>
+      </div>
+      <div class="student-grid">
+        <div class="data-box"><div class="data-label">Plan</div><div class="data-val">${s.plan_months} mo • ${money(s.monthly_fee)}/mo</div></div>
+        <div class="data-box"><div class="data-label">Pending</div><div class="data-val">${money(s.pending_amount)}</div></div>
+        <div class="data-box"><div class="data-label">Cycle Start</div><div class="data-val">${formatDate(s.cycle_start)}</div></div>
+        <div class="data-box"><div class="data-label">Cycle End</div><div class="data-val">${formatDate(s.cycle_end)}</div></div>
+      </div>
+      <div class="student-actions">
+        <button class="btn" onclick="editStudent('${s.id}')">Edit</button>
+        <button class="btn primary" onclick="openPayment('${s.id}')">Payment</button>
+        <button class="btn" onclick="sendWhatsApp('${s.id}','fee_due')">WhatsApp</button>
+        <button class="btn danger" onclick="deleteStudent('${s.id}')">Delete</button>
+      </div>
+    </div>`;
+  }).join('') || '<div class="empty">No matching students.</div>';
 }
 
-async function runFullTest(){
+function renderFees(){
+  const pending=state.students.filter(s=>s.active && Number(s.pending_amount||0)>0);
+  document.getElementById('pendingFees').innerHTML=pending.length?pending.map(s=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #eee">
+      <div><b>${escapeHtml(s.student_name)}</b><div class="smalltext muted">${s.pending_cycles||0} pending cycle(s) • current end ${formatDate(s.cycle_end)}</div></div>
+      <div style="display:flex;align-items:center;gap:8px"><b>${money(s.pending_amount)}</b><button class="btn small primary" onclick="openPayment('${s.id}')">Record Payment</button></div>
+    </div>
+  `).join(''):'<div class="empty">No pending fees.</div>';
+
+  document.getElementById('paymentsTbody').innerHTML=state.payments.map(p=>{
+    const s=state.students.find(x=>x.id===p.student_id);
+    return `<tr>
+      <td>${formatDate(p.payment_date)}</td>
+      <td><b>${escapeHtml(s?.student_name||'Deleted student')}</b></td>
+      <td>${p.plan_months} mo</td>
+      <td>${formatDate(p.period_start)} → ${formatDate(p.period_end)}</td>
+      <td><b>${money(p.amount)}</b></td>
+      <td>${escapeHtml(p.payment_method||'')}</td>
+      <td>${escapeHtml(p.notes||'')}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="7" class="empty">No payments recorded yet.</td></tr>';
+}
+
+function renderMessages(){
+  const today=todayISO();
+  const lead=Number(state.settings.reminder_lead_days||2);
+  const relevant=state.students.filter(s=>s.active).sort((a,b)=>String(a.cycle_end).localeCompare(String(b.cycle_end)));
+
+  document.getElementById('messageCenter').innerHTML=relevant.length?relevant.map(s=>{
+    const d=daysBetween(today,dateOnly(s.cycle_end));
+    let note='';
+    if(Number(s.pending_amount||0)>0)note=`Pending ${money(s.pending_amount)}`;
+    else if(d>=0 && d<=lead)note=`Cycle ends in ${d} day(s)`;
+    else note=`Cycle ends ${formatDate(s.cycle_end)}`;
+    return `<div style="padding:11px 0;border-bottom:1px solid #eee">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:center">
+        <div><b>${escapeHtml(s.student_name)}</b><div class="smalltext muted">${escapeHtml(s.parent_phone)} • ${escapeHtml(note)}</div></div>
+        <div class="row-actions">
+          <button class="btn small" onclick="sendWhatsApp('${s.id}','joining')">Joining</button>
+          <button class="btn small" onclick="sendWhatsApp('${s.id}','fee_schedule')">Fee Schedule</button>
+          <button class="btn small primary" onclick="sendWhatsApp('${s.id}','fee_due')">Fee Due</button>
+        </div>
+      </div>
+    </div>`;
+  }).join(''):'<div class="empty">No active students.</div>';
+
+  document.getElementById('messagesTbody').innerHTML=state.messages.map(m=>{
+    const s=state.students.find(x=>x.id===m.student_id);
+    return `<tr>
+      <td>${new Date(m.created_at).toLocaleString('en-IN')}</td>
+      <td>${escapeHtml(s?.student_name||'Deleted student')}</td>
+      <td>${escapeHtml(m.message_type)}</td>
+      <td>${escapeHtml(m.phone)}</td>
+      <td>${escapeHtml(m.status)}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="5" class="empty">No WhatsApp activity logged yet.</td></tr>';
+}
+function renderSettings(){
+  document.getElementById('setAcademyName').value=state.settings.academy_name||'';
+  document.getElementById('setDefaultFee').value=Number(state.settings.default_monthly_fee||0);
+  document.getElementById('setLeadDays').value=Number(state.settings.reminder_lead_days||2);
+  const coaches=Array.isArray(state.settings.coaches)?state.settings.coaches:['Coach 1','Coach 2'];
+  document.getElementById('setCoaches').value=coaches.join(', ');
+  populateCoachOptions();
+}
+function populateCoachOptions(selected=''){
+  const sel=document.getElementById('fCoach');
+  const coaches=Array.isArray(state.settings.coaches)?state.settings.coaches:['Coach 1','Coach 2'];
+  sel.innerHTML=coaches.map(c=>`<option ${c===selected?'selected':''}>${escapeHtml(c)}</option>`).join('');
+}
+
+function openStudentModal(id=''){
+  document.getElementById('studentId').value=id;
+  const s=id?state.students.find(x=>x.id===id):null;
+  document.getElementById('studentModalTitle').textContent=s?'Edit Student':'Add Student';
+  document.getElementById('fName').value=s?.student_name||'';
+  document.getElementById('fPhone').value=s?.parent_phone||'';
+  populateCoachOptions(s?.coach||'');
+  document.getElementById('fBatch').value=s?.batch_timing||'';
+  document.getElementById('fJoin').value=dateOnly(s?.joining_date||todayISO());
+  document.getElementById('fPlan').value=String(s?.plan_months||1);
+  document.getElementById('fMonthlyFee').value=Number(s?.monthly_fee ?? state.settings.default_monthly_fee ?? 0);
+  document.getElementById('fFeePaid').value=String(s?.fee_paid??false);
+  document.getElementById('fNotes').value=s?.notes||'';
+  document.getElementById('fActive').checked=s?s.active!==false:true;
+  updateStudentPreview();
+  document.getElementById('studentModal').classList.add('open');
+}
+function editStudent(id){openStudentModal(id)}
+function closeModal(id){document.getElementById(id).classList.remove('open')}
+function updateStudentPreview(){
+  const start=document.getElementById('fJoin').value||todayISO();
+  const months=Number(document.getElementById('fPlan').value||1);
+  const fee=Number(document.getElementById('fMonthlyFee').value||0);
+  const paid=document.getElementById('fFeePaid').value==='true';
+  document.getElementById('studentPreview').textContent=
+    `Cycle: ${formatDate(start)} to ${formatDate(cycleEnd(start,months))} • Plan amount: ${money(fee*months)} • Initial pending: ${paid?money(0):money(fee*months)}`;
+}
+document.getElementById('fJoin').addEventListener('change',updateStudentPreview);
+
+async function saveStudent(){
+  const id=document.getElementById('studentId').value;
+  const name=document.getElementById('fName').value.trim();
+  const phone=document.getElementById('fPhone').value.trim();
+  const coach=document.getElementById('fCoach').value;
+  const batch=document.getElementById('fBatch').value.trim();
+  const join=document.getElementById('fJoin').value;
+  const months=Number(document.getElementById('fPlan').value);
+  const fee=Number(document.getElementById('fMonthlyFee').value||0);
+  const paid=document.getElementById('fFeePaid').value==='true';
+  const notes=document.getElementById('fNotes').value.trim();
+  const active=document.getElementById('fActive').checked;
+
+  if(!name||!phone||!join)return toast('Name, phone and joining date are required');
+  if(![1,3,12].includes(months))return toast('Invalid fee plan');
+
   try{
-    if(testStudentId){
-      try{await deleteTestStudent()}catch(e){}
+    if(id){
+      const old=state.students.find(x=>x.id===id);
+      const payload={
+        student_name:name,parent_phone:phone,coach,batch_timing:batch,
+        joining_date:join,plan_months:months,monthly_fee:fee,
+        notes,active
+      };
+
+      // Do not destroy accumulated pending/cycle history on ordinary edits.
+      // If plan/join date changed, recalculate only current cycle boundaries.
+      if(old && (dateOnly(old.joining_date)!==join || Number(old.plan_months)!==months)){
+        payload.cycle_start=join;
+        payload.cycle_end=cycleEnd(join,months);
+      }
+
+      await db('students',{
+        method:'PATCH',
+        query:'?id=eq.'+encodeURIComponent(id),
+        body:payload,prefer:'return=minimal'
+      });
+      toast('Student updated');
+    }else{
+      const amount=fee*months;
+      const payload={
+        student_name:name,parent_phone:phone,coach,batch_timing:batch,
+        joining_date:join,plan_months:months,monthly_fee:fee,fee_paid:paid,
+        cycle_start:join,cycle_end:cycleEnd(join,months),
+        pending_amount:paid?0:amount,pending_cycles:paid?0:1,
+        notes,active
+      };
+      await db('students',{method:'POST',body:payload,prefer:'return=minimal'});
+      toast('Student added');
     }
 
-    await createTestStudent();
-    await readTestStudent();
-    await updateTestStudent();
-
-    // Verify updated data is really readable from server
-    const verified=await readTestStudent();
-    if(verified.student_name!=='HTTA Supabase Test - Updated'){
-      throw new Error('Updated value did not persist.');
-    }
-
-    await deleteTestStudent();
-
-    setBox(
-      'dbStatus',
-      'FULL CRUD TEST SUCCESS\n\n'+
-      '✓ Create\n'+
-      '✓ Read\n'+
-      '✓ Update\n'+
-      '✓ Read updated value\n'+
-      '✓ Delete\n\n'+
-      'Authentication, RLS and the students table are working correctly.\n'+
-      'The database is ready for the real HTTA app.',
-      'ok'
-    );
-  }catch(e){
-    setBox('dbStatus','FULL CRUD TEST FAILED\n'+e.message,'err');
-  }
+    closeModal('studentModal');
+    await loadAll(false);
+  }catch(e){toast('Save failed: '+e.message)}
 }
+
+async function deleteStudent(id){
+  const s=state.students.find(x=>x.id===id);
+  if(!s)return;
+  if(!confirm(`Delete ${s.student_name}? Payment and renewal history linked to this student will also be removed.`))return;
+  try{
+    await db('students',{method:'DELETE',query:'?id=eq.'+encodeURIComponent(id),prefer:'return=minimal'});
+    toast('Student deleted'); await loadAll(false);
+  }catch(e){toast('Delete failed: '+e.message)}
+}
+
+function openPayment(id){
+  const s=state.students.find(x=>x.id===id);
+  if(!s)return;
+  document.getElementById('payStudentId').value=id;
+  document.getElementById('payDate').value=todayISO();
+  document.getElementById('payAmount').value=Number(s.pending_amount||planAmount(s)||0);
+  document.getElementById('payMethod').value='UPI';
+  document.getElementById('payNotes').value='';
+  document.getElementById('payStudentSummary').textContent=
+    `${s.student_name} • Pending ${money(s.pending_amount)} • Current cycle ${formatDate(s.cycle_start)} to ${formatDate(s.cycle_end)}`;
+  document.getElementById('paymentModal').classList.add('open');
+}
+async function recordPayment(){
+  const id=document.getElementById('payStudentId').value;
+  const s=state.students.find(x=>x.id===id);
+  if(!s)return;
+  const date=document.getElementById('payDate').value;
+  const amount=Number(document.getElementById('payAmount').value||0);
+  const method=document.getElementById('payMethod').value;
+  const notes=document.getElementById('payNotes').value.trim();
+  if(!date||amount<=0)return toast('Enter a valid payment date and amount');
+
+  try{
+    await db('payments',{
+      method:'POST',
+      body:{
+        student_id:s.id,payment_date:date,plan_months:Number(s.plan_months),
+        period_start:dateOnly(s.cycle_start),period_end:dateOnly(s.cycle_end),
+        amount,payment_method:method,notes
+      },prefer:'return=minimal'
+    });
+
+    const remaining=Math.max(0,Number(s.pending_amount||0)-amount);
+    await db('students',{
+      method:'PATCH',
+      query:'?id=eq.'+encodeURIComponent(s.id),
+      body:{
+        pending_amount:remaining,
+        pending_cycles:remaining===0?0:Number(s.pending_cycles||0),
+        fee_paid:remaining===0
+      },
+      prefer:'return=minimal'
+    });
+
+    closeModal('paymentModal'); toast('Payment recorded');
+    await loadAll(false);
+  }catch(e){toast('Payment failed: '+e.message)}
+}
+
+function whatsappPhone(rawPhone){
+  let p=String(rawPhone||'').replace(/\D/g,'');
+  if(p.length===10)p='91'+p;
+  return p;
+}
+function messageText(s,type){
+  const academy=state.settings.academy_name||'Hauxing Table Tennis Academy';
+  const payBy=addDays(dateOnly(s.cycle_end),-Number(state.settings.reminder_lead_days||2));
+  const planLabel=`${s.plan_months} month${Number(s.plan_months)===1?'':'s'}`;
+  const amount=planAmount(s);
+
+  if(type==='joining'){
+    return `Hello,\\n\\nWelcome to ${academy}. ${s.student_name} joined on ${formatDate(s.joining_date)}.\\n\\nCoach: ${s.coach}\\nBatch: ${s.batch_timing||'To be confirmed'}\\nFee plan: ${planLabel}\\nMonthly fee: ${money(s.monthly_fee)}\\n\\nThank you.`;
+  }
+  if(type==='fee_schedule'){
+    return `Hello,\\n\\nThis is a fee schedule reminder from ${academy} for ${s.student_name}.\\n\\nCurrent fee period: ${formatDate(s.cycle_start)} to ${formatDate(s.cycle_end)}\\nPlan: ${planLabel}\\nPlan amount: ${money(amount)}\\nPlease arrange renewal/payment by ${formatDate(payBy)}.\\n\\nThank you.`;
+  }
+  return `Hello,\\n\\nFee details for ${s.student_name} at ${academy}:\\n\\nJoining date: ${formatDate(s.joining_date)}\\nCoach: ${s.coach}\\nBatch: ${s.batch_timing||'To be confirmed'}\\nPlan: ${planLabel}\\nMonthly fee: ${money(s.monthly_fee)}\\nPlan amount: ${money(amount)}\\nCurrent fee period: ${formatDate(s.cycle_start)} to ${formatDate(s.cycle_end)}\\nPay by: ${formatDate(payBy)}\\nPending amount: ${money(s.pending_amount)}\\nFee Paid: ${Number(s.pending_amount||0)===0?'Yes':'No'}${s.notes?`\\nNotes: ${s.notes}`:''}\\n\\nThank you.`;
+}
+async function sendWhatsApp(id,type){
+  const s=state.students.find(x=>x.id===id);
+  if(!s)return;
+  const phone=whatsappPhone(s.parent_phone);
+  if(!phone)return toast('No valid parent phone number');
+
+  const msg=messageText(s,type);
+  const dbType=type==='joining'?'joining':type==='fee_schedule'?'fee_schedule':'fee_due';
+
+  try{
+    await db('message_logs',{
+      method:'POST',
+      body:{
+        student_id:s.id,message_type:dbType,phone:s.parent_phone,
+        message_text:msg,status:'opened'
+      },prefer:'return=minimal'
+    });
+  }catch(e){console.warn(e)}
+
+  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`,'_blank','noopener');
+  setTimeout(()=>loadAll(false),700);
+}
+
+async function saveSettings(){
+  const academy=document.getElementById('setAcademyName').value.trim()||'Hauxing Table Tennis Academy';
+  const fee=Number(document.getElementById('setDefaultFee').value||0);
+  const lead=Math.max(0,Number(document.getElementById('setLeadDays').value||2));
+  const coaches=document.getElementById('setCoaches').value.split(',').map(x=>x.trim()).filter(Boolean);
+  if(!coaches.length)return toast('Add at least one coach');
+  try{
+    await db('academy_settings',{
+      method:'PATCH',query:'?id=eq.1',
+      body:{academy_name:academy,default_monthly_fee:fee,reminder_lead_days:lead,coaches},
+      prefer:'return=minimal'
+    });
+    toast('Settings saved'); await loadAll(false);
+  }catch(e){toast('Settings failed: '+e.message)}
+}
+
+(async function boot(){
+  session=loadSession();
+  if(session){
+    const token=await validToken();
+    if(token){
+      await enterApp();
+      return;
+    }
+  }
+  document.getElementById('loginScreen').classList.remove('hidden');
+})();
 </script>
 </body>
 </html>
