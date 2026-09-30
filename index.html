@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>HTTA Supabase Login Test</title>
+<style>
+:root{--bg:#f6f6f3;--card:#fff;--ink:#111;--muted:#70706b;--line:#d9d9d4}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:var(--bg);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink);display:grid;place-items:center;padding:18px}
+.card{width:min(460px,100%);background:var(--card);border:1px solid var(--line);border-radius:20px;padding:24px;box-shadow:0 16px 46px rgba(0,0,0,.08)}
+.logo{width:48px;height:48px;border-radius:14px;background:#111;color:#fff;display:grid;place-items:center;font-weight:900;font-size:20px;margin-bottom:18px}
+h1{font-size:24px;letter-spacing:-.6px;margin:0 0 6px}.sub{font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:22px}
+label{font-size:11px;font-weight:800;display:block;margin:13px 0 6px}
+input{width:100%;min-height:48px;border:1px solid #cfcfca;border-radius:12px;padding:11px 12px;font:inherit;font-size:16px}
+button{width:100%;min-height:48px;border:1px solid #111;border-radius:12px;padding:10px 12px;font:inherit;font-weight:800;cursor:pointer;margin-top:10px}
+.primary{background:#111;color:#fff}.secondary{background:#fff;color:#111}
+.status{margin-top:14px;border:1px solid var(--line);border-radius:12px;padding:12px;font-size:12px;line-height:1.5;background:#fafaf8;white-space:pre-wrap;overflow-wrap:anywhere}
+.ok{border-color:#9d9d96}.error{background:#111;color:#fff;border-color:#111}
+.userbox{display:none;margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}.userbox.show{display:block}
+.row{display:grid;grid-template-columns:120px 1fr;gap:10px;padding:7px 0;font-size:12px}.row span:first-child{color:var(--muted);font-weight:700}
+.version{font-size:10px;color:var(--muted);text-align:center;margin-top:16px}
+@media(max-width:520px){body{align-items:stretch;padding:12px}.card{margin:auto;padding:20px}.row{grid-template-columns:1fr;gap:2px}}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">H</div>
+  <h1>HTTA Supabase Test</h1>
+  <div class="sub">This page tests only the new Supabase project's Auth API. Nothing from the old HTTA app is loaded here.</div>
+
+  <button class="secondary" type="button" onclick="testConnection()">1. Test Supabase Connection</button>
+
+  <form id="loginForm">
+    <label>Owner Email</label>
+    <input id="email" type="email" autocomplete="username" required placeholder="your-email@example.com">
+    <label>Password</label>
+    <input id="password" type="password" autocomplete="current-password" required>
+    <button id="loginButton" class="primary" type="submit">2. Sign In</button>
+  </form>
+
+  <div id="status" class="status">Status: waiting for connection test.</div>
+
+  <div id="userBox" class="userbox">
+    <div class="row"><span>Auth</span><b>SUCCESS</b></div>
+    <div class="row"><span>Email</span><span id="userEmail"></span></div>
+    <div class="row"><span>User ID</span><span id="userId"></span></div>
+    <div class="row"><span>Confirmed At</span><span id="confirmedAt"></span></div>
+    <button class="secondary" type="button" onclick="logout()">Sign Out / Reset Test</button>
+  </div>
+
+  <div class="version">HTTA Login Test v1 • Direct Supabase REST • No cache / no service worker</div>
+</div>
+
+<script>
+const SUPABASE_URL='https://bozqsfgcnlktiskahnno.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY='sb_publishable_4TZTKFKYqd0cFBGbRHUTVQ_ty4EEi1Y';
+
+function setStatus(message,type=''){
+  const el=document.getElementById('status');
+  el.textContent=message;
+  el.className='status'+(type?' '+type:'');
+}
+
+async function api(path,options={}){
+  const headers={apikey:SUPABASE_PUBLISHABLE_KEY,...(options.headers||{})};
+  if(options.body!==undefined)headers['Content-Type']='application/json';
+
+  let response;
+  try{
+    response=await fetch(SUPABASE_URL+path,{
+      method:options.method||'GET',
+      headers,
+      body:options.body===undefined?undefined:JSON.stringify(options.body),
+      cache:'no-store'
+    });
+  }catch(err){
+    throw new Error('NETWORK ERROR: Browser could not reach Supabase. '+err.message);
+  }
+
+  const text=await response.text();
+  let data=null;
+  try{data=text?JSON.parse(text):null}catch(e){data=text}
+
+  if(!response.ok){
+    const msg=data?.msg||data?.message||data?.error_description||data?.error||('HTTP '+response.status);
+    const code=data?.error_code||data?.code||'';
+    throw new Error(msg+(code?' ['+code+']':''));
+  }
+  return data;
+}
+
+async function testConnection(){
+  setStatus('Testing connection to the new Supabase project…');
+  try{
+    const settings=await api('/auth/v1/settings');
+    const emailEnabled=settings?.external?.email !== false;
+    setStatus('CONNECTION SUCCESS\nProject Auth API is reachable.\nEmail provider: '+(emailEnabled?'enabled':'check provider settings'),'ok');
+  }catch(err){
+    setStatus('CONNECTION FAILED\n'+err.message,'error');
+  }
+}
+
+document.getElementById('loginForm').addEventListener('submit',async event=>{
+  event.preventDefault();
+  const email=document.getElementById('email').value.trim().toLowerCase();
+  const password=document.getElementById('password').value;
+  const button=document.getElementById('loginButton');
+
+  button.disabled=true;
+  button.textContent='Signing in…';
+  setStatus('Sending email/password directly to Supabase Auth…');
+
+  try{
+    const auth=await api('/auth/v1/token?grant_type=password',{method:'POST',body:{email,password}});
+    const user=auth?.user;
+    if(!user)throw new Error('Supabase returned a session but no user object.');
+
+    document.getElementById('userEmail').textContent=user.email||'—';
+    document.getElementById('userId').textContent=user.id||'—';
+    document.getElementById('confirmedAt').textContent=user.email_confirmed_at||user.confirmed_at||'—';
+    document.getElementById('userBox').classList.add('show');
+
+    setStatus('LOGIN SUCCESS\nSupabase accepted the email/password.\nWe can now build the real HTTA database app.','ok');
+  }catch(err){
+    document.getElementById('userBox').classList.remove('show');
+    setStatus('LOGIN FAILED\n'+err.message,'error');
+  }finally{
+    button.disabled=false;
+    button.textContent='2. Sign In';
+  }
+});
+
+function logout(){
+  document.getElementById('userBox').classList.remove('show');
+  document.getElementById('password').value='';
+  setStatus('Signed out locally. Run the test again when ready.');
+}
+</script>
+</body>
+</html>
