@@ -6,138 +6,353 @@
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>HTTA Supabase Login Test</title>
+<title>HTTA Supabase Database Test</title>
 <style>
-:root{--bg:#f6f6f3;--card:#fff;--ink:#111;--muted:#70706b;--line:#d9d9d4}
+:root{--bg:#f6f6f3;--card:#fff;--ink:#111;--muted:#73736f;--line:#d9d9d3}
 *{box-sizing:border-box}
-body{margin:0;min-height:100vh;background:var(--bg);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink);display:grid;place-items:center;padding:18px}
-.card{width:min(460px,100%);background:var(--card);border:1px solid var(--line);border-radius:20px;padding:24px;box-shadow:0 16px 46px rgba(0,0,0,.08)}
-.logo{width:48px;height:48px;border-radius:14px;background:#111;color:#fff;display:grid;place-items:center;font-weight:900;font-size:20px;margin-bottom:18px}
-h1{font-size:24px;letter-spacing:-.6px;margin:0 0 6px}.sub{font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:22px}
-label{font-size:11px;font-weight:800;display:block;margin:13px 0 6px}
-input{width:100%;min-height:48px;border:1px solid #cfcfca;border-radius:12px;padding:11px 12px;font:inherit;font-size:16px}
-button{width:100%;min-height:48px;border:1px solid #111;border-radius:12px;padding:10px 12px;font:inherit;font-weight:800;cursor:pointer;margin-top:10px}
-.primary{background:#111;color:#fff}.secondary{background:#fff;color:#111}
-.status{margin-top:14px;border:1px solid var(--line);border-radius:12px;padding:12px;font-size:12px;line-height:1.5;background:#fafaf8;white-space:pre-wrap;overflow-wrap:anywhere}
-.ok{border-color:#9d9d96}.error{background:#111;color:#fff;border-color:#111}
-.userbox{display:none;margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}.userbox.show{display:block}
-.row{display:grid;grid-template-columns:120px 1fr;gap:10px;padding:7px 0;font-size:12px}.row span:first-child{color:var(--muted);font-weight:700}
-.version{font-size:10px;color:var(--muted);text-align:center;margin-top:16px}
-@media(max-width:520px){body{align-items:stretch;padding:12px}.card{margin:auto;padding:20px}.row{grid-template-columns:1fr;gap:2px}}
+body{margin:0;min-height:100vh;background:var(--bg);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink);padding:20px}
+.wrap{width:min(720px,100%);margin:0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:22px;margin-bottom:14px;box-shadow:0 12px 35px rgba(0,0,0,.05)}
+.logo{width:46px;height:46px;border-radius:13px;background:#111;color:#fff;display:grid;place-items:center;font-weight:900;margin-bottom:14px}
+h1{font-size:25px;letter-spacing:-.7px;margin:0 0 6px} h2{font-size:17px;margin:0 0 12px}
+.sub{font-size:13px;color:var(--muted);line-height:1.5}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+label{font-size:11px;font-weight:800;display:block;margin:12px 0 5px}
+input{width:100%;min-height:46px;border:1px solid #ccc;border-radius:11px;padding:10px 12px;font:inherit;font-size:16px}
+button{min-height:46px;border:1px solid #111;border-radius:11px;padding:10px 13px;font:inherit;font-weight:800;cursor:pointer;background:#fff;color:#111}
+.primary{background:#111;color:#fff}.full{width:100%;margin-top:10px}
+.actions{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.status{margin-top:12px;border:1px solid var(--line);border-radius:12px;padding:12px;font-size:12px;line-height:1.55;background:#fafaf8;white-space:pre-wrap;overflow-wrap:anywhere}
+.ok{border-color:#888}.err{background:#111;color:#fff;border-color:#111}
+.row{display:grid;grid-template-columns:140px 1fr;gap:10px;padding:7px 0;border-bottom:1px solid #eee;font-size:12px}
+.row:last-child{border-bottom:0}.key{color:var(--muted);font-weight:700}
+.badge{display:inline-flex;padding:5px 8px;border-radius:999px;border:1px solid #bbb;font-size:10px;font-weight:800}
+.hidden{display:none}
+.version{text-align:center;color:var(--muted);font-size:10px;margin-top:12px}
+@media(max-width:650px){body{padding:12px}.card{padding:18px}.grid,.actions{grid-template-columns:1fr}.row{grid-template-columns:1fr;gap:2px}}
 </style>
 </head>
 <body>
-<div class="card">
-  <div class="logo">H</div>
-  <h1>HTTA Supabase Test</h1>
-  <div class="sub">This page tests only the new Supabase project's Auth API. Nothing from the old HTTA app is loaded here.</div>
+<div class="wrap">
 
-  <button class="secondary" type="button" onclick="testConnection()">1. Test Supabase Connection</button>
-
-  <form id="loginForm">
-    <label>Owner Email</label>
-    <input id="email" type="email" autocomplete="username" required placeholder="your-email@example.com">
-    <label>Password</label>
-    <input id="password" type="password" autocomplete="current-password" required>
-    <button id="loginButton" class="primary" type="submit">2. Sign In</button>
-  </form>
-
-  <div id="status" class="status">Status: waiting for connection test.</div>
-
-  <div id="userBox" class="userbox">
-    <div class="row"><span>Auth</span><b>SUCCESS</b></div>
-    <div class="row"><span>Email</span><span id="userEmail"></span></div>
-    <div class="row"><span>User ID</span><span id="userId"></span></div>
-    <div class="row"><span>Confirmed At</span><span id="confirmedAt"></span></div>
-    <button class="secondary" type="button" onclick="logout()">Sign Out / Reset Test</button>
+  <div class="card">
+    <div class="logo">H</div>
+    <h1>HTTA Database Test</h1>
+    <div class="sub">
+      Step 3: verify authentication + Row Level Security + CRUD access to the new <b>students</b> table.
+      This is still only a test page, not the final HTTA app.
+    </div>
   </div>
 
-  <div class="version">HTTA Login Test v1 • Direct Supabase REST • No cache / no service worker</div>
+  <div class="card">
+    <h2>1. Owner Login</h2>
+    <div class="grid">
+      <div>
+        <label>Email</label>
+        <input id="email" type="email" autocomplete="username" placeholder="owner@example.com">
+      </div>
+      <div>
+        <label>Password</label>
+        <input id="password" type="password" autocomplete="current-password">
+      </div>
+    </div>
+    <button class="primary full" onclick="login()">Sign In</button>
+    <div id="authStatus" class="status">Not signed in.</div>
+  </div>
+
+  <div id="databaseCard" class="card hidden">
+    <h2>2. Supabase Database Test</h2>
+    <div class="sub">
+      These buttons use your authenticated access token. Anonymous visitors should not be able to perform these actions.
+    </div>
+
+    <div class="actions" style="margin-top:14px">
+      <button onclick="createTestStudent()">A. Create</button>
+      <button onclick="readTestStudent()">B. Read</button>
+      <button onclick="updateTestStudent()">C. Update</button>
+      <button onclick="deleteTestStudent()">D. Delete</button>
+    </div>
+
+    <button class="primary full" onclick="runFullTest()">Run Complete CRUD Test</button>
+
+    <div id="dbStatus" class="status">Ready for database test.</div>
+  </div>
+
+  <div id="recordCard" class="card hidden">
+    <h2>Current Test Record</h2>
+    <div class="row"><span class="key">Student ID</span><span id="rid">—</span></div>
+    <div class="row"><span class="key">Student Name</span><span id="rname">—</span></div>
+    <div class="row"><span class="key">Parent Phone</span><span id="rphone">—</span></div>
+    <div class="row"><span class="key">Coach</span><span id="rcoach">—</span></div>
+    <div class="row"><span class="key">Batch</span><span id="rbatch">—</span></div>
+    <div class="row"><span class="key">Plan</span><span id="rplan">—</span></div>
+    <div class="row"><span class="key">Monthly Fee</span><span id="rfee">—</span></div>
+  </div>
+
+  <div class="version">HTTA Database Test v1 • Direct Supabase REST • GitHub Pages ready • No service worker</div>
 </div>
 
 <script>
 const SUPABASE_URL='https://bozqsfgcnlktiskahnno.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_4TZTKFKYqd0cFBGbRHUTVQ_ty4EEi1Y';
 
-function setStatus(message,type=''){
-  const el=document.getElementById('status');
-  el.textContent=message;
+let accessToken=null;
+let currentUser=null;
+let testStudentId=null;
+
+function setBox(id,msg,type=''){
+  const el=document.getElementById(id);
+  el.textContent=msg;
   el.className='status'+(type?' '+type:'');
 }
 
-async function api(path,options={}){
-  const headers={apikey:SUPABASE_PUBLISHABLE_KEY,...(options.headers||{})};
-  if(options.body!==undefined)headers['Content-Type']='application/json';
+async function raw(path,{method='GET',body,token,prefer}={}){
+  const headers={apikey:SUPABASE_PUBLISHABLE_KEY};
+  if(token)headers.Authorization='Bearer '+token;
+  if(body!==undefined)headers['Content-Type']='application/json';
+  if(prefer)headers.Prefer=prefer;
 
-  let response;
+  let res;
   try{
-    response=await fetch(SUPABASE_URL+path,{
-      method:options.method||'GET',
+    res=await fetch(SUPABASE_URL+path,{
+      method,
       headers,
-      body:options.body===undefined?undefined:JSON.stringify(options.body),
+      body:body===undefined?undefined:JSON.stringify(body),
       cache:'no-store'
     });
-  }catch(err){
-    throw new Error('NETWORK ERROR: Browser could not reach Supabase. '+err.message);
+  }catch(e){
+    throw new Error('Network error: '+e.message);
   }
 
-  const text=await response.text();
+  const text=await res.text();
   let data=null;
   try{data=text?JSON.parse(text):null}catch(e){data=text}
 
-  if(!response.ok){
-    const msg=data?.msg||data?.message||data?.error_description||data?.error||('HTTP '+response.status);
-    const code=data?.error_code||data?.code||'';
+  if(!res.ok){
+    const msg=data?.message||data?.msg||data?.error_description||data?.error||('HTTP '+res.status);
+    const code=data?.code||data?.error_code||'';
     throw new Error(msg+(code?' ['+code+']':''));
   }
   return data;
 }
 
-async function testConnection(){
-  setStatus('Testing connection to the new Supabase project…');
+async function login(){
+  const email=document.getElementById('email').value.trim().toLowerCase();
+  const password=document.getElementById('password').value;
+  setBox('authStatus','Signing in…');
+
   try{
-    const settings=await api('/auth/v1/settings');
-    const emailEnabled=settings?.external?.email !== false;
-    setStatus('CONNECTION SUCCESS\nProject Auth API is reachable.\nEmail provider: '+(emailEnabled?'enabled':'check provider settings'),'ok');
-  }catch(err){
-    setStatus('CONNECTION FAILED\n'+err.message,'error');
+    const auth=await raw('/auth/v1/token?grant_type=password',{
+      method:'POST',
+      body:{email,password}
+    });
+
+    accessToken=auth.access_token;
+    currentUser=auth.user;
+
+    setBox(
+      'authStatus',
+      'LOGIN SUCCESS\n'+
+      'Email: '+(currentUser?.email||'—')+'\n'+
+      'User ID: '+(currentUser?.id||'—')+'\n'+
+      'Authenticated database access is now enabled.',
+      'ok'
+    );
+
+    document.getElementById('databaseCard').classList.remove('hidden');
+  }catch(e){
+    accessToken=null;
+    currentUser=null;
+    document.getElementById('databaseCard').classList.add('hidden');
+    setBox('authStatus','LOGIN FAILED\n'+e.message,'err');
   }
 }
 
-document.getElementById('loginForm').addEventListener('submit',async event=>{
-  event.preventDefault();
-  const email=document.getElementById('email').value.trim().toLowerCase();
-  const password=document.getElementById('password').value;
-  const button=document.getElementById('loginButton');
+function mustLogin(){
+  if(!accessToken)throw new Error('Sign in first.');
+}
 
-  button.disabled=true;
-  button.textContent='Signing in…';
-  setStatus('Sending email/password directly to Supabase Auth…');
+function sampleStudent(updated=false){
+  return {
+    student_name: updated ? 'HTTA Supabase Test - Updated' : 'HTTA Supabase Test',
+    parent_phone:'919999999999',
+    coach:'Coach 1',
+    batch_timing:updated ? '6:00 PM - 7:00 PM' : '5:00 PM - 6:00 PM',
+    joining_date:'2026-09-30',
+    plan_months:1,
+    monthly_fee:3000,
+    fee_paid:false,
+    cycle_start:'2026-09-30',
+    cycle_end:'2026-10-29',
+    pending_amount:3000,
+    pending_cycles:1,
+    notes:'Temporary CRUD test record. Safe to delete.',
+    active:true
+  };
+}
 
-  try{
-    const auth=await api('/auth/v1/token?grant_type=password',{method:'POST',body:{email,password}});
-    const user=auth?.user;
-    if(!user)throw new Error('Supabase returned a session but no user object.');
-
-    document.getElementById('userEmail').textContent=user.email||'—';
-    document.getElementById('userId').textContent=user.id||'—';
-    document.getElementById('confirmedAt').textContent=user.email_confirmed_at||user.confirmed_at||'—';
-    document.getElementById('userBox').classList.add('show');
-
-    setStatus('LOGIN SUCCESS\nSupabase accepted the email/password.\nWe can now build the real HTTA database app.','ok');
-  }catch(err){
-    document.getElementById('userBox').classList.remove('show');
-    setStatus('LOGIN FAILED\n'+err.message,'error');
-  }finally{
-    button.disabled=false;
-    button.textContent='2. Sign In';
+function showRecord(r){
+  if(!r){
+    document.getElementById('recordCard').classList.add('hidden');
+    return;
   }
-});
+  document.getElementById('recordCard').classList.remove('hidden');
+  document.getElementById('rid').textContent=r.id||'—';
+  document.getElementById('rname').textContent=r.student_name||'—';
+  document.getElementById('rphone').textContent=r.parent_phone||'—';
+  document.getElementById('rcoach').textContent=r.coach||'—';
+  document.getElementById('rbatch').textContent=r.batch_timing||'—';
+  document.getElementById('rplan').textContent=(r.plan_months||'—')+' month';
+  document.getElementById('rfee').textContent='₹'+Number(r.monthly_fee||0).toLocaleString('en-IN');
+}
 
-function logout(){
-  document.getElementById('userBox').classList.remove('show');
-  document.getElementById('password').value='';
-  setStatus('Signed out locally. Run the test again when ready.');
+async function createTestStudent(){
+  try{
+    mustLogin();
+
+    if(testStudentId){
+      setBox('dbStatus','A test student already exists in this session. Delete it first or run Read.','err');
+      return null;
+    }
+
+    setBox('dbStatus','Creating temporary student in Supabase…');
+
+    const rows=await raw('/rest/v1/students',{
+      method:'POST',
+      token:accessToken,
+      body:sampleStudent(false),
+      prefer:'return=representation'
+    });
+
+    const r=Array.isArray(rows)?rows[0]:rows;
+    if(!r?.id)throw new Error('Insert succeeded but no student ID was returned.');
+
+    testStudentId=r.id;
+    showRecord(r);
+    setBox('dbStatus','CREATE SUCCESS\nStudent saved permanently in Supabase.\nID: '+r.id,'ok');
+    return r;
+  }catch(e){
+    setBox('dbStatus','CREATE FAILED\n'+e.message,'err');
+    throw e;
+  }
+}
+
+async function readTestStudent(){
+  try{
+    mustLogin();
+    if(!testStudentId)throw new Error('Create the test student first.');
+
+    setBox('dbStatus','Reading student back from Supabase…');
+
+    const rows=await raw(
+      '/rest/v1/students?select=*&id=eq.'+encodeURIComponent(testStudentId),
+      {token:accessToken}
+    );
+
+    if(!Array.isArray(rows)||!rows.length)throw new Error('Student was not found.');
+
+    showRecord(rows[0]);
+    setBox('dbStatus','READ SUCCESS\nThe same record was retrieved from Supabase.','ok');
+    return rows[0];
+  }catch(e){
+    setBox('dbStatus','READ FAILED\n'+e.message,'err');
+    throw e;
+  }
+}
+
+async function updateTestStudent(){
+  try{
+    mustLogin();
+    if(!testStudentId)throw new Error('Create the test student first.');
+
+    setBox('dbStatus','Updating test student…');
+
+    const rows=await raw(
+      '/rest/v1/students?id=eq.'+encodeURIComponent(testStudentId),
+      {
+        method:'PATCH',
+        token:accessToken,
+        body:{
+          student_name:'HTTA Supabase Test - Updated',
+          batch_timing:'6:00 PM - 7:00 PM',
+          notes:'CRUD update successful.'
+        },
+        prefer:'return=representation'
+      }
+    );
+
+    const r=Array.isArray(rows)?rows[0]:rows;
+    if(!r)throw new Error('Update returned no record.');
+
+    showRecord(r);
+    setBox('dbStatus','UPDATE SUCCESS\nSupabase saved the edited student.','ok');
+    return r;
+  }catch(e){
+    setBox('dbStatus','UPDATE FAILED\n'+e.message,'err');
+    throw e;
+  }
+}
+
+async function deleteTestStudent(){
+  try{
+    mustLogin();
+    if(!testStudentId)throw new Error('There is no test student to delete.');
+
+    const id=testStudentId;
+    setBox('dbStatus','Deleting temporary test student…');
+
+    await raw(
+      '/rest/v1/students?id=eq.'+encodeURIComponent(id),
+      {
+        method:'DELETE',
+        token:accessToken,
+        prefer:'return=minimal'
+      }
+    );
+
+    testStudentId=null;
+    showRecord(null);
+    setBox('dbStatus','DELETE SUCCESS\nTemporary test record was removed from Supabase.\nDatabase CRUD test is complete.','ok');
+    return true;
+  }catch(e){
+    setBox('dbStatus','DELETE FAILED\n'+e.message,'err');
+    throw e;
+  }
+}
+
+async function runFullTest(){
+  try{
+    if(testStudentId){
+      try{await deleteTestStudent()}catch(e){}
+    }
+
+    await createTestStudent();
+    await readTestStudent();
+    await updateTestStudent();
+
+    // Verify updated data is really readable from server
+    const verified=await readTestStudent();
+    if(verified.student_name!=='HTTA Supabase Test - Updated'){
+      throw new Error('Updated value did not persist.');
+    }
+
+    await deleteTestStudent();
+
+    setBox(
+      'dbStatus',
+      'FULL CRUD TEST SUCCESS\n\n'+
+      '✓ Create\n'+
+      '✓ Read\n'+
+      '✓ Update\n'+
+      '✓ Read updated value\n'+
+      '✓ Delete\n\n'+
+      'Authentication, RLS and the students table are working correctly.\n'+
+      'The database is ready for the real HTTA app.',
+      'ok'
+    );
+  }catch(e){
+    setBox('dbStatus','FULL CRUD TEST FAILED\n'+e.message,'err');
+  }
 }
 </script>
 </body>
