@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Hauxing Table Tennis Academy</title>
+<title>Hauxing Table Tennis Academy v1.1</title>
 <style>
 :root{
   --bg:#f5f5f1;--card:#fff;--ink:#111;--muted:#71716b;--line:#d9d9d3;
@@ -689,7 +689,7 @@ document.getElementById('loginForm').addEventListener('submit',async e=>{
     saveSession(session);
     await enterApp();
   }catch(err){
-    st.textContent='Login failed\\n'+err.message;
+    st.textContent=['Login failed',err.message].join(String.fromCharCode(10));
     st.className='login-status error';
   }
 });
@@ -1138,19 +1138,73 @@ function whatsappPhone(rawPhone){
   if(p.length===10)p='91'+p;
   return p;
 }
+function normalizeWhatsAppText(text){
+  const LF=String.fromCharCode(10);
+  return String(text||'')
+    .replace(/\\n/g,LF)
+    .replace(/\r\n/g,LF)
+    .replace(/\r/g,LF);
+}
 function messageText(s,type){
   const academy=state.settings.academy_name||'Hauxing Table Tennis Academy';
   const payBy=addDays(dateOnly(s.cycle_end),-Number(state.settings.reminder_lead_days||2));
   const planLabel=`${s.plan_months} month${Number(s.plan_months)===1?'':'s'}`;
   const amount=planAmount(s);
+  const LF=String.fromCharCode(10);
 
   if(type==='joining'){
-    return `Hello,\\n\\nWelcome to ${academy}. ${s.student_name} joined on ${formatDate(s.joining_date)}.\\n\\nCoach: ${s.coach}\\nBatch: ${s.batch_timing||'To be confirmed'}\\nFee plan: ${planLabel}\\nMonthly fee: ${money(s.monthly_fee)}\\n\\nThank you.`;
+    return [
+      'Hello,',
+      '',
+      `Welcome to ${academy}. ${s.student_name} joined on ${formatDate(s.joining_date)}.`,
+      '',
+      `Coach: ${s.coach}`,
+      `Batch: ${s.batch_timing||'To be confirmed'}`,
+      `Fee plan: ${planLabel}`,
+      `Monthly fee: ${money(s.monthly_fee)}`,
+      '',
+      'Thank you.'
+    ].join(LF);
   }
+
   if(type==='fee_schedule'){
-    return `Hello,\\n\\nThis is a fee schedule reminder from ${academy} for ${s.student_name}.\\n\\nCurrent fee period: ${formatDate(s.cycle_start)} to ${formatDate(s.cycle_end)}\\nPlan: ${planLabel}\\nPlan amount: ${money(amount)}\\nPlease arrange renewal/payment by ${formatDate(payBy)}.\\n\\nThank you.`;
+    return [
+      'Hello,',
+      '',
+      `This is a fee schedule reminder from ${academy} for ${s.student_name}.`,
+      '',
+      `Current fee period: ${formatDate(s.cycle_start)} to ${formatDate(s.cycle_end)}`,
+      `Plan: ${planLabel}`,
+      `Plan amount: ${money(amount)}`,
+      `Please arrange renewal/payment by ${formatDate(payBy)}.`,
+      '',
+      'Thank you.'
+    ].join(LF);
   }
-  return `Hello,\\n\\nFee details for ${s.student_name} at ${academy}:\\n\\nJoining date: ${formatDate(s.joining_date)}\\nCoach: ${s.coach}\\nBatch: ${s.batch_timing||'To be confirmed'}\\nPlan: ${planLabel}\\nMonthly fee: ${money(s.monthly_fee)}\\nPlan amount: ${money(amount)}\\nCurrent fee period: ${formatDate(s.cycle_start)} to ${formatDate(s.cycle_end)}\\nPay by: ${formatDate(payBy)}\\nPending amount: ${money(s.pending_amount)}\\nFee Paid: ${Number(s.pending_amount||0)===0?'Yes':'No'}${s.notes?`\\nNotes: ${s.notes}`:''}\\n\\nThank you.`;
+
+  const lines=[
+    'Hello,',
+    '',
+    `Fee details for ${s.student_name} at ${academy}:`,
+    '',
+    `Joining date: ${formatDate(s.joining_date)}`,
+    `Coach: ${s.coach}`,
+    `Batch: ${s.batch_timing||'To be confirmed'}`,
+    `Plan: ${planLabel}`,
+    `Monthly fee: ${money(s.monthly_fee)}`,
+    `Plan amount: ${money(amount)}`,
+    `Current fee period: ${formatDate(s.cycle_start)} to ${formatDate(s.cycle_end)}`,
+    `Pay by: ${formatDate(payBy)}`,
+    `Pending amount: ${money(s.pending_amount)}`,
+    `Fee Paid: ${Number(s.pending_amount||0)===0?'Yes':'No'}`
+  ];
+
+  if(s.notes){
+    lines.push(`Notes: ${s.notes}`);
+  }
+
+  lines.push('', 'Thank you.');
+  return lines.join(LF);
 }
 async function sendWhatsApp(id,type){
   const s=state.students.find(x=>x.id===id);
@@ -1158,7 +1212,7 @@ async function sendWhatsApp(id,type){
   const phone=whatsappPhone(s.parent_phone);
   if(!phone)return toast('No valid parent phone number');
 
-  const msg=messageText(s,type);
+  const msg=normalizeWhatsAppText(messageText(s,type));
   const dbType=type==='joining'?'joining':type==='fee_schedule'?'fee_schedule':'fee_due';
 
   try{
