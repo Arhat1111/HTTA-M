@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Hauxing Table Tennis Academy v1.1</title>
+<title>Hauxing Table Tennis Academy v1.3</title>
 <style>
 :root{
   --bg:#f5f5f1;--card:#fff;--ink:#111;--muted:#71716b;--line:#d9d9d3;
@@ -287,9 +287,9 @@ tr:last-child td{border-bottom:0}
             <div class="kpi-note">total outstanding</div>
           </div>
           <div class="kpi">
-            <div class="kpi-label">Due Soon</div>
+            <div class="kpi-label">Fee Due / Overdue</div>
             <div class="kpi-value" id="kpiDueSoon">0</div>
-            <div class="kpi-note">within reminder window</div>
+            <div class="kpi-note">payment due within first 3 days</div>
           </div>
           <div class="kpi">
             <div class="kpi-label">Payments</div>
@@ -345,7 +345,7 @@ tr:last-child td{border-bottom:0}
               <thead>
                 <tr>
                   <th>Student</th><th>Coach / Batch</th><th>Plan</th><th>Fee Status</th>
-                  <th>Current Cycle</th><th>Pending</th><th>Actions</th>
+                  <th>Current Cycle / Pay By</th><th>Pending</th><th>Actions</th>
                 </tr>
               </thead>
               <tbody id="studentsTbody"></tbody>
@@ -425,8 +425,9 @@ tr:last-child td{border-bottom:0}
               <input id="setDefaultFee" type="number" min="0" step="0.01">
             </div>
             <div>
-              <label>Reminder Lead Days</label>
-              <input id="setLeadDays" type="number" min="0" max="30">
+              <label>Fee Payment Window</label>
+              <input id="setLeadDays" type="number" value="3" readonly>
+              <div class="smalltext muted" style="margin-top:5px">Fixed: fees must be collected within the first 3 calendar days of each fee cycle.</div>
             </div>
             <div>
               <label>Coaches (comma separated)</label>
@@ -605,8 +606,25 @@ function daysBetween(a,b){
   const A=parseDate(a),B=parseDate(b);
   return Math.round((B-A)/86400000)
 }
+const FEE_PAYMENT_WINDOW_DAYS=3;
 function planDays(months){return Number(months||1)*30}
 function cycleEnd(start,months){return addDays(start,planDays(months)-1)}
+function feeDueDate(studentOrStart){
+  const start=typeof studentOrStart==='string'
+    ? studentOrStart
+    : dateOnly(studentOrStart?.cycle_start||studentOrStart?.joining_date||todayISO());
+  // The first day counts as day 1, therefore a 3-day window ends at start + 2 days.
+  return addDays(start,FEE_PAYMENT_WINDOW_DAYS-1);
+}
+function feeDeadlineStatus(s){
+  if(Number(s.pending_amount||0)<=0)return {label:'Paid',overdue:false,due:false};
+  const due=feeDueDate(s);
+  const today=todayISO();
+  const diff=daysBetween(today,due);
+  if(diff<0)return {label:`Overdue since ${formatDate(due)}`,overdue:true,due:false};
+  if(diff===0)return {label:`Due today (${formatDate(due)})`,overdue:false,due:true};
+  return {label:`Pay by ${formatDate(due)}`,overdue:false,due:true};
+}
 function planAmount(student){return Number(student.monthly_fee||0)*Number(student.plan_months||1)}
 function formatDate(s){
   if(!s)return '—';
@@ -730,6 +748,19 @@ async function loadAll(showToast=false){
       db('message_logs',{query:'?select=*&order=created_at.desc'})
     ]);
     if(settings?.[0])state.settings=settings[0];
+
+    // V1.3 rule: every fee cycle must be paid within its first 3 calendar days.
+    // Keep the existing database column for compatibility, but normalize it to 3.
+    if(Number(state.settings.reminder_lead_days)!==FEE_PAYMENT_WINDOW_DAYS){
+      await db('academy_settings',{
+        method:'PATCH',
+        query:'?id=eq.1',
+        body:{reminder_lead_days:FEE_PAYMENT_WINDOW_DAYS},
+        prefer:'return=minimal'
+      });
+      state.settings.reminder_lead_days=FEE_PAYMENT_WINDOW_DAYS;
+    }
+
     state.students=students||[];
     state.payments=payments||[];
     state.renewals=renewals||[];
@@ -818,38 +849,43 @@ function renderAll(){
 }
 function renderDashboard(){
   const active=state.students.filter(s=>s.active);
-  const pending=active.reduce((a,s)=>a+Number(s.pending_amount||0),0);
-  const lead=Number(state.settings.reminder_lead_days||2);
+  const pendingStudents=active.filter(s=>Number(s.pending_amount||0)>0);
+  const pending=pendingStudents.reduce((a,s)=>a+Number(s.pending_amount||0),0);
   const today=todayISO();
-  const dueSoon=active.filter(s=>{
-    const d=daysBetween(today,dateOnly(s.cycle_end));
-    return d>=0 && d<=lead;
-  }).length;
+  const feeDueCount=pendingStudents.length;
   const payTotal=state.payments.reduce((a,p)=>a+Number(p.amount||0),0);
 
   document.getElementById('kpiStudents').textContent=active.length;
   document.getElementById('kpiPending').textContent=money(pending);
-  document.getElementById('kpiDueSoon').textContent=dueSoon;
+  document.getElementById('kpiDueSoon').textContent=feeDueCount;
   document.getElementById('kpiPayments').textContent=money(payTotal);
 
-  const attention=active
-    .filter(s=>Number(s.pending_amount||0)>0 || daysBetween(today,dateOnly(s.cycle_end))<=lead)
+  const attention=[...pendingStudents]
+    .sort((a,b)=>String(feeDueDate(a)).localeCompare(String(feeDueDate(b))))
     .slice(0,8);
 
   const box=document.getElementById('attentionList');
-  if(!attention.length)box.innerHTML='<div class="empty">Nothing needs attention right now.</div>';
-  else box.innerHTML=attention.map(s=>`
+  if(!attention.length)box.innerHTML='<div class="empty">No pending fees right now.</div>';
+  else box.innerHTML=attention.map(s=>{
+    const deadline=feeDeadlineStatus(s);
+    return `
     <div style="display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid #eee">
       <div>
         <div style="font-weight:900">${escapeHtml(s.student_name)}</div>
-        <div class="smalltext muted">${escapeHtml(s.coach)} • ${escapeHtml(s.batch_timing||'No batch')} • ends ${formatDate(s.cycle_end)}</div>
+        <div class="smalltext muted">
+          ${escapeHtml(s.coach)} • ${escapeHtml(s.batch_timing||'No batch')} •
+          cycle ${formatDate(s.cycle_start)}–${formatDate(s.cycle_end)}
+        </div>
+        <div class="smalltext" style="margin-top:3px;font-weight:800">
+          ${escapeHtml(deadline.label)}
+        </div>
       </div>
       <div style="text-align:right">
         <div style="font-weight:900">${money(s.pending_amount)}</div>
         <button class="btn small" onclick="openPayment('${s.id}')">Payment</button>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 
   const recent=state.payments.slice(0,5);
   document.getElementById('recentPayments').innerHTML=recent.length?recent.map(p=>{
@@ -860,7 +896,6 @@ function renderDashboard(){
     </div>`;
   }).join(''):'<div class="empty">No payments recorded yet.</div>';
 }
-
 function filteredStudents(){
   const q=(document.getElementById('studentSearch')?.value||'').trim().toLowerCase();
   const f=document.getElementById('studentFilter')?.value||'all';
@@ -884,7 +919,7 @@ function renderStudents(){
       <td>${escapeHtml(s.coach)}<br><span class="muted">${escapeHtml(s.batch_timing||'—')}</span></td>
       <td>${s.plan_months} mo<br><span class="muted">${money(s.monthly_fee)}/mo</span></td>
       <td><span class="status ${st.cls}">${st.label}</span></td>
-      <td>${formatDate(s.cycle_start)}<br><span class="muted">to ${formatDate(s.cycle_end)}</span></td>
+      <td>${formatDate(s.cycle_start)}<br><span class="muted">to ${formatDate(s.cycle_end)}</span><br><b>Pay by ${formatDate(feeDueDate(s))}</b></td>
       <td><b>${money(s.pending_amount)}</b></td>
       <td><div class="row-actions">
         <button class="btn small" onclick="editStudent('${s.id}')">Edit</button>
@@ -907,6 +942,7 @@ function renderStudents(){
         <div class="data-box"><div class="data-label">Pending</div><div class="data-val">${money(s.pending_amount)}</div></div>
         <div class="data-box"><div class="data-label">Cycle Start</div><div class="data-val">${formatDate(s.cycle_start)}</div></div>
         <div class="data-box"><div class="data-label">Cycle End</div><div class="data-val">${formatDate(s.cycle_end)}</div></div>
+        <div class="data-box"><div class="data-label">Fee Pay By</div><div class="data-val">${formatDate(feeDueDate(s))}</div></div>
       </div>
       <div class="student-actions">
         <button class="btn" onclick="editStudent('${s.id}')">Edit</button>
@@ -919,13 +955,27 @@ function renderStudents(){
 }
 
 function renderFees(){
-  const pending=state.students.filter(s=>s.active && Number(s.pending_amount||0)>0);
-  document.getElementById('pendingFees').innerHTML=pending.length?pending.map(s=>`
+  const pending=state.students
+    .filter(s=>s.active && Number(s.pending_amount||0)>0)
+    .sort((a,b)=>String(feeDueDate(a)).localeCompare(String(feeDueDate(b))));
+
+  document.getElementById('pendingFees').innerHTML=pending.length?pending.map(s=>{
+    const deadline=feeDeadlineStatus(s);
+    return `
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #eee">
-      <div><b>${escapeHtml(s.student_name)}</b><div class="smalltext muted">${s.pending_cycles||0} pending cycle(s) • current end ${formatDate(s.cycle_end)}</div></div>
-      <div style="display:flex;align-items:center;gap:8px"><b>${money(s.pending_amount)}</b><button class="btn small primary" onclick="openPayment('${s.id}')">Record Payment</button></div>
-    </div>
-  `).join(''):'<div class="empty">No pending fees.</div>';
+      <div>
+        <b>${escapeHtml(s.student_name)}</b>
+        <div class="smalltext muted">
+          ${s.pending_cycles||0} pending cycle(s) • current cycle ${formatDate(s.cycle_start)} to ${formatDate(s.cycle_end)}
+        </div>
+        <div class="smalltext" style="font-weight:800;margin-top:3px">${escapeHtml(deadline.label)}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <b>${money(s.pending_amount)}</b>
+        <button class="btn small primary" onclick="openPayment('${s.id}')">Record Payment</button>
+      </div>
+    </div>`;
+  }).join(''):'<div class="empty">No pending fees.</div>';
 
   document.getElementById('paymentsTbody').innerHTML=state.payments.map(p=>{
     const s=state.students.find(x=>x.id===p.student_id);
@@ -940,21 +990,23 @@ function renderFees(){
     </tr>`;
   }).join('') || '<tr><td colspan="7" class="empty">No payments recorded yet.</td></tr>';
 }
-
 function renderMessages(){
-  const today=todayISO();
-  const lead=Number(state.settings.reminder_lead_days||2);
-  const relevant=state.students.filter(s=>s.active).sort((a,b)=>String(a.cycle_end).localeCompare(String(b.cycle_end)));
+  const relevant=state.students
+    .filter(s=>s.active)
+    .sort((a,b)=>String(feeDueDate(a)).localeCompare(String(feeDueDate(b))));
 
   document.getElementById('messageCenter').innerHTML=relevant.length?relevant.map(s=>{
-    const d=daysBetween(today,dateOnly(s.cycle_end));
-    let note='';
-    if(Number(s.pending_amount||0)>0)note=`Pending ${money(s.pending_amount)}`;
-    else if(d>=0 && d<=lead)note=`Cycle ends in ${d} day(s)`;
-    else note=`Cycle ends ${formatDate(s.cycle_end)}`;
+    const deadline=feeDeadlineStatus(s);
+    const note=Number(s.pending_amount||0)>0
+      ? `${money(s.pending_amount)} pending • ${deadline.label}`
+      : `Paid • cycle ${formatDate(s.cycle_start)} to ${formatDate(s.cycle_end)}`;
+
     return `<div style="padding:11px 0;border-bottom:1px solid #eee">
       <div style="display:flex;justify-content:space-between;gap:10px;align-items:center">
-        <div><b>${escapeHtml(s.student_name)}</b><div class="smalltext muted">${escapeHtml(s.parent_phone)} • ${escapeHtml(note)}</div></div>
+        <div>
+          <b>${escapeHtml(s.student_name)}</b>
+          <div class="smalltext muted">${escapeHtml(s.parent_phone)} • ${escapeHtml(note)}</div>
+        </div>
         <div class="row-actions">
           <button class="btn small" onclick="sendWhatsApp('${s.id}','joining')">Joining</button>
           <button class="btn small" onclick="sendWhatsApp('${s.id}','fee_schedule')">Fee Schedule</button>
@@ -978,7 +1030,7 @@ function renderMessages(){
 function renderSettings(){
   document.getElementById('setAcademyName').value=state.settings.academy_name||'';
   document.getElementById('setDefaultFee').value=Number(state.settings.default_monthly_fee||0);
-  document.getElementById('setLeadDays').value=Number(state.settings.reminder_lead_days||2);
+  document.getElementById('setLeadDays').value=FEE_PAYMENT_WINDOW_DAYS;
   const coaches=Array.isArray(state.settings.coaches)?state.settings.coaches:['Coach 1','Coach 2'];
   document.getElementById('setCoaches').value=coaches.join(', ');
   populateCoachOptions();
@@ -1014,7 +1066,7 @@ function updateStudentPreview(){
   const fee=Number(document.getElementById('fMonthlyFee').value||0);
   const paid=document.getElementById('fFeePaid').value==='true';
   document.getElementById('studentPreview').textContent=
-    `Cycle: ${formatDate(start)} to ${formatDate(cycleEnd(start,months))} • Plan amount: ${money(fee*months)} • Initial pending: ${paid?money(0):money(fee*months)}`;
+    `Cycle: ${formatDate(start)} to ${formatDate(cycleEnd(start,months))} • Fee pay by: ${formatDate(feeDueDate(start))} • Plan amount: ${money(fee*months)} • Initial pending: ${paid?money(0):money(fee*months)}`;
 }
 document.getElementById('fJoin').addEventListener('change',updateStudentPreview);
 
@@ -1093,7 +1145,7 @@ function openPayment(id){
   document.getElementById('payMethod').value='UPI';
   document.getElementById('payNotes').value='';
   document.getElementById('payStudentSummary').textContent=
-    `${s.student_name} • Pending ${money(s.pending_amount)} • Current cycle ${formatDate(s.cycle_start)} to ${formatDate(s.cycle_end)}`;
+    `${s.student_name} • Pending ${money(s.pending_amount)} • Pay by ${formatDate(feeDueDate(s))} • Current cycle ${formatDate(s.cycle_start)} to ${formatDate(s.cycle_end)}`;
   document.getElementById('paymentModal').classList.add('open');
 }
 async function recordPayment(){
@@ -1147,7 +1199,7 @@ function normalizeWhatsAppText(text){
 }
 function messageText(s,type){
   const academy=state.settings.academy_name||'Hauxing Table Tennis Academy';
-  const payBy=addDays(dateOnly(s.cycle_end),-Number(state.settings.reminder_lead_days||2));
+  const payBy=feeDueDate(s);
   const planLabel=`${s.plan_months} month${Number(s.plan_months)===1?'':'s'}`;
   const amount=planAmount(s);
   const LF=String.fromCharCode(10);
@@ -1162,6 +1214,7 @@ function messageText(s,type){
       `Batch: ${s.batch_timing||'To be confirmed'}`,
       `Fee plan: ${planLabel}`,
       `Monthly fee: ${money(s.monthly_fee)}`,
+      `Fee payment due by: ${formatDate(payBy)}`,
       '',
       'Thank you.'
     ].join(LF);
@@ -1176,7 +1229,7 @@ function messageText(s,type){
       `Current fee period: ${formatDate(s.cycle_start)} to ${formatDate(s.cycle_end)}`,
       `Plan: ${planLabel}`,
       `Plan amount: ${money(amount)}`,
-      `Please arrange renewal/payment by ${formatDate(payBy)}.`,
+      `Please complete the fee payment by ${formatDate(payBy)} (within the first 3 days of this fee cycle).`,
       '',
       'Thank you.'
     ].join(LF);
@@ -1194,7 +1247,7 @@ function messageText(s,type){
     `Monthly fee: ${money(s.monthly_fee)}`,
     `Plan amount: ${money(amount)}`,
     `Current fee period: ${formatDate(s.cycle_start)} to ${formatDate(s.cycle_end)}`,
-    `Pay by: ${formatDate(payBy)}`,
+    `Pay by: ${formatDate(payBy)} (within the first 3 days of the fee cycle)`,
     `Pending amount: ${money(s.pending_amount)}`,
     `Fee Paid: ${Number(s.pending_amount||0)===0?'Yes':'No'}`
   ];
@@ -1232,7 +1285,7 @@ async function sendWhatsApp(id,type){
 async function saveSettings(){
   const academy=document.getElementById('setAcademyName').value.trim()||'Hauxing Table Tennis Academy';
   const fee=Number(document.getElementById('setDefaultFee').value||0);
-  const lead=Math.max(0,Number(document.getElementById('setLeadDays').value||2));
+  const lead=FEE_PAYMENT_WINDOW_DAYS;
   const coaches=document.getElementById('setCoaches').value.split(',').map(x=>x.trim()).filter(Boolean);
   if(!coaches.length)return toast('Add at least one coach');
   try{
