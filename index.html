@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Hauxing Table Tennis Academy v1.8.1</title>
+<title>Hauxing Table Tennis Academy v1.9</title>
 <style>
 :root{
   --bg:#f5f5f1;--card:#fff;--ink:#111;--muted:#71716b;--line:#d9d9d3;
@@ -261,7 +261,7 @@ tr:last-child td{border-bottom:0}
         <div class="brand-logo">H</div>
         <div>
           <div class="brand-title" id="brandTitle">Hauxing Table Tennis Academy</div>
-          <div class="brand-sub">Cloud fee & student management • v1.8.1</div>
+          <div class="brand-sub">Cloud fee & student management • v1.9</div>
         </div>
       </div>
       <div class="top-actions">
@@ -316,7 +316,7 @@ tr:last-child td{border-bottom:0}
           <div class="kpi">
             <div class="kpi-label">Payments</div>
             <div class="kpi-value" id="kpiPayments">₹0</div>
-            <div class="kpi-note">recorded total</div>
+            <div class="kpi-note">actual payment records</div>
           </div>
         </div>
 
@@ -342,7 +342,7 @@ tr:last-child td{border-bottom:0}
             <div class="kpi">
               <div class="kpi-label">Fees Collected</div>
               <div class="kpi-value" id="monthCollected">₹0</div>
-              <div class="kpi-note">cash received this month</div>
+              <div class="kpi-note">actual money received this month</div>
             </div>
             <div class="kpi">
               <div class="kpi-label">Fee Value Started</div>
@@ -435,7 +435,7 @@ tr:last-child td{border-bottom:0}
           <div class="kpi">
             <div class="kpi-label">Fees Collected</div>
             <div class="kpi-value" id="mpCollected">₹0</div>
-            <div class="kpi-note">money received this month</div>
+            <div class="kpi-note">actual money received this month</div>
           </div>
           <div class="kpi">
             <div class="kpi-label">Fee Value Started</div>
@@ -807,6 +807,45 @@ function currentFeeCycle(student){
     || state.feeCycles.find(c=>c.student_id===student.id && c.cycle_type==='regular' && dateOnly(c.cycle_end)===dateOnly(student.cycle_end))
     || null;
 }
+function existingStudentIds(){
+  return new Set(state.students.map(s=>s.id));
+}
+function isSyntheticInitialPayment(p){
+  return String(p?.payment_method||'').trim().toLowerCase()==='initial'
+    && String(p?.notes||'').toLowerCase().includes('marked paid during student registration');
+}
+function paymentCycleKey(p){
+  return [p?.student_id||'',dateOnly(p?.period_start||''),dateOnly(p?.period_end||'')].join('|');
+}
+function effectivePayments(){
+  const ids=existingStudentIds();
+  const base=state.payments.filter(p=>ids.has(p.student_id));
+  const realByCycle=new Map();
+
+  for(const p of base){
+    if(isSyntheticInitialPayment(p))continue;
+    const key=paymentCycleKey(p);
+    realByCycle.set(key,(realByCycle.get(key)||0)+Number(p.amount||0));
+  }
+
+  // Legacy versions sometimes recorded the same fee twice:
+  // one synthetic "Initial" payment plus a later real Cash/UPI/etc payment.
+  // Hide the synthetic row only when later real payments fully cover it.
+  return base.filter(p=>{
+    if(!isSyntheticInitialPayment(p))return true;
+    const real=Number(realByCycle.get(paymentCycleKey(p))||0);
+    return real+0.005 < Number(p.amount||0);
+  });
+}
+function effectiveFeeCycles(){
+  const ids=existingStudentIds();
+  return state.feeCycles.filter(c=>ids.has(c.student_id));
+}
+function effectiveMessages(){
+  const ids=existingStudentIds();
+  return state.messages.filter(m=>m.student_id && ids.has(m.student_id));
+}
+
 function formatDate(s){
   if(!s)return '—';
   try{return parseDate(dateOnly(s)).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}catch(e){return s}
@@ -1110,7 +1149,8 @@ function renderDashboard(){
   const pendingStudents=active.filter(s=>Number(s.pending_amount||0)>0.005);
   const pending=pendingStudents.reduce((a,s)=>a+Number(s.pending_amount||0),0);
   const feeDueCount=pendingStudents.length;
-  const payTotal=state.payments.reduce((a,p)=>a+Number(p.amount||0),0);
+  const visiblePayments=effectivePayments();
+  const payTotal=visiblePayments.reduce((a,p)=>a+Number(p.amount||0),0);
 
   document.getElementById('kpiStudents').textContent=active.length;
   document.getElementById('kpiPending').textContent=money(pending);
@@ -1122,9 +1162,9 @@ function renderDashboard(){
   const selectedMonth=monthInput?.value||currentMonthKey();
 
   const monthStudents=state.students.filter(s=>monthKey(s.joining_date)===selectedMonth);
-  const monthPayments=state.payments.filter(p=>monthKey(p.payment_date)===selectedMonth);
+  const monthPayments=visiblePayments.filter(p=>monthKey(p.payment_date)===selectedMonth);
   const monthCollected=monthPayments.reduce((a,p)=>a+Number(p.amount||0),0);
-  const monthCycles=state.feeCycles.filter(c=>c.cycle_type==='regular' && monthKey(c.cycle_start)===selectedMonth);
+  const monthCycles=effectiveFeeCycles().filter(c=>c.cycle_type==='regular' && monthKey(c.cycle_start)===selectedMonth);
   const monthCycleValue=monthCycles.reduce((a,c)=>a+Number(c.fee_amount||0),0);
 
   document.getElementById('monthlyOverviewLabel').textContent=monthLabel(selectedMonth);
@@ -1158,7 +1198,7 @@ function renderDashboard(){
     </div>`;
   }).join('');
 
-  const recent=state.payments.slice(0,5);
+  const recent=visiblePayments.slice(0,5);
   document.getElementById('recentPayments').innerHTML=recent.length?recent.map(p=>{
     const s=state.students.find(x=>x.id===p.student_id);
     return `<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #eee">
@@ -1177,11 +1217,11 @@ function renderMonthlyPage(){
     .filter(s=>monthKey(s.joining_date)===selected)
     .sort((a,b)=>String(a.joining_date).localeCompare(String(b.joining_date)));
 
-  const payments=state.payments
+  const payments=effectivePayments()
     .filter(p=>monthKey(p.payment_date)===selected)
     .sort((a,b)=>String(b.payment_date).localeCompare(String(a.payment_date)));
 
-  const cycles=state.feeCycles
+  const cycles=effectiveFeeCycles()
     .filter(c=>c.cycle_type==='regular' && monthKey(c.cycle_start)===selected)
     .sort((a,b)=>String(a.cycle_start).localeCompare(String(b.cycle_start)));
 
@@ -1322,7 +1362,7 @@ function renderFees(){
     </div>`;
   }).join(''):'<div class="empty">No pending fees.</div>';
 
-  document.getElementById('paymentsTbody').innerHTML=state.payments.map(p=>{
+  document.getElementById('paymentsTbody').innerHTML=effectivePayments().map(p=>{
     const s=state.students.find(x=>x.id===p.student_id);
     return `<tr>
       <td>${formatDate(p.payment_date)}</td>
@@ -1361,7 +1401,7 @@ function renderMessages(){
     </div>`;
   }).join(''):'<div class="empty">No active students.</div>';
 
-  document.getElementById('messagesTbody').innerHTML=state.messages.map(m=>{
+  document.getElementById('messagesTbody').innerHTML=effectiveMessages().map(m=>{
     const s=state.students.find(x=>x.id===m.student_id);
     return `<tr>
       <td>${new Date(m.created_at).toLocaleString('en-IN')}</td>
@@ -1585,13 +1625,50 @@ async function saveStudent(){
 async function deleteStudent(id){
   const s=state.students.find(x=>x.id===id);
   if(!s)return;
-  if(!confirm(`Delete ${s.student_name}? Payment and renewal history linked to this student will also be removed.`))return;
-  try{
-    await db('students',{method:'DELETE',query:'?id=eq.'+encodeURIComponent(id),prefer:'return=minimal'});
-    toast('Student deleted'); await loadAll(false);
-  }catch(e){toast('Delete failed: '+e.message)}
-}
 
+  if(!confirm(
+    `Permanently delete ${s.student_name}?\n\nThis will also delete all of this student's payments, fee cycles, renewals, month records and WhatsApp logs. Nothing will remain in reports or history.`
+  ))return;
+
+  try{
+    // Purge child data explicitly first. This makes deletion complete even on
+    // databases created by older HTTA versions whose foreign keys used SET NULL.
+    const childTables=['message_logs','student_months','payments','renewals','fee_cycles'];
+    for(const table of childTables){
+      try{
+        await db(table,{
+          method:'DELETE',
+          query:'?student_id=eq.'+encodeURIComponent(id),
+          prefer:'return=minimal'
+        });
+      }catch(err){
+        // Older installations may not have every optional table. Continue so
+        // the core student deletion can still complete.
+        console.warn('Cleanup skipped for',table,err);
+      }
+    }
+
+    await db('students',{
+      method:'DELETE',
+      query:'?id=eq.'+encodeURIComponent(id),
+      prefer:'return=minimal'
+    });
+
+    // Immediately remove it from local state too, so no stale mark appears
+    // while the cloud reload is happening.
+    state.students=state.students.filter(x=>x.id!==id);
+    state.payments=state.payments.filter(x=>x.student_id!==id);
+    state.renewals=state.renewals.filter(x=>x.student_id!==id);
+    state.feeCycles=state.feeCycles.filter(x=>x.student_id!==id);
+    state.messages=state.messages.filter(x=>x.student_id!==id);
+    renderAll();
+
+    toast('Student and all related data permanently deleted');
+    await loadAll(false);
+  }catch(e){
+    toast('Delete failed: '+e.message);
+  }
+}
 function openPayment(id){
   const s=state.students.find(x=>x.id===id);
   if(!s)return;
@@ -1730,7 +1807,7 @@ function openStudentPortfolio(id){
       </div>`;
   }).join('');
 
-  const pays=state.payments.filter(p=>p.student_id===s.id);
+  const pays=effectivePayments().filter(p=>p.student_id===s.id);
   document.getElementById('portfolioPayments').innerHTML=pays.length?pays.map(p=>`
     <div class="student-row">
       <div><div class="student-name">${formatDate(p.payment_date)}</div><div class="muted">${escapeHtml(p.payment_method||'')} ${p.notes?'• '+escapeHtml(p.notes):''}</div></div>
@@ -1970,6 +2047,6 @@ async function saveSettings(){
   document.getElementById('loginScreen').classList.remove('hidden');
 })();
 </script>
-<div style="display:none" id="HTTA_BUILD_1_8_1">v1.8.1</div>
+<div style="display:none" id="HTTA_BUILD_1_9">v1.9</div>
 </body>
 </html>
