@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Hauxing Table Tennis Academy v1.5</title>
+<title>Hauxing Table Tennis Academy v1.6</title>
 <style>
 :root{
   --bg:#f5f5f1;--card:#fff;--ink:#111;--muted:#71716b;--line:#d9d9d3;
@@ -258,7 +258,7 @@ tr:last-child td{border-bottom:0}
       </div>
       <div class="top-actions">
         <div id="syncPill" class="sync-pill">Cloud connected</div>
-        <button class="btn small" onclick="loadAll(true)">Refresh</button>
+        <button class="btn small" onclick="manualRefresh()">Refresh</button>
         <button class="btn small" onclick="logout()">Logout</button>
       </div>
     </div>
@@ -463,7 +463,7 @@ tr:last-child td{border-bottom:0}
           <div class="form-grid">
             <div>
               <label>Academy Name</label>
-              <input id="setAcademyName">
+              <input id="setAcademyName" oninput="markSettingsDirty()">
             </div>
             <div>
               <label>Fee Payment Window</label>
@@ -482,7 +482,7 @@ tr:last-child td{border-bottom:0}
           </div>
 
           <div class="form-actions">
-            <button class="btn primary" onclick="saveSettings()">Save Settings</button>
+            <button id="saveSettingsButton" class="btn primary" onclick="saveSettings()">Save Settings</button>
           </div>
         </div>
 
@@ -493,7 +493,7 @@ tr:last-child td{border-bottom:0}
             Do not put any Supabase secret/service-role key in this frontend.
           </div>
           <div class="actions" style="margin-top:12px">
-            <button class="btn" onclick="loadAll(true)">Load Latest Data</button>
+            <button class="btn" onclick="manualRefresh()">Load Latest Data</button>
             <button class="btn" onclick="logout()">Sign Out</button>
           </div>
         </div>
@@ -673,6 +673,8 @@ let state={
 };
 let pollTimer=null;
 let loading=false;
+let settingsDirty=false;
+let settingsSaving=false;
 
 function toast(msg){
   const el=document.getElementById('toast');
@@ -833,9 +835,22 @@ async function logout(){
 function setSync(text){
   document.getElementById('syncPill').textContent=text;
 }
+async function manualRefresh(){
+  if(settingsDirty){
+    const ok=confirm('You have unsaved Settings changes. Refreshing will discard them. Continue?');
+    if(!ok)return;
+    settingsDirty=false;
+  }
+  await loadAll(true);
+}
 function startPolling(){
   stopPolling();
-  pollTimer=setInterval(()=>{if(!document.hidden)loadAll(false)},10000);
+  pollTimer=setInterval(()=>{
+    if(document.hidden)return;
+    if(settingsDirty || settingsSaving)return;
+    if(document.activeElement && ['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName))return;
+    loadAll(false);
+  },10000);
 }
 function stopPolling(){if(pollTimer){clearInterval(pollTimer);pollTimer=null}}
 
@@ -1211,11 +1226,20 @@ function renderMessages(){
   }).join('') || '<tr><td colspan="5" class="empty">No WhatsApp activity logged yet.</td></tr>';
 }
 function renderSettings(){
+  if(settingsDirty || settingsSaving)return;
   document.getElementById('setAcademyName').value=state.settings.academy_name||'';
   document.getElementById('setLeadDays').value=FEE_PAYMENT_WINDOW_DAYS;
   state.settings.coaches=normalizeCoaches(state.settings.coaches);
   renderCoachEditor();
   populateCoachOptions();
+}
+function markSettingsDirty(){
+  settingsDirty=true;
+  const btn=document.getElementById('saveSettingsButton');
+  if(btn){
+    btn.textContent='Save Changes';
+    btn.classList.add('primary');
+  }
 }
 function normalizeCoaches(raw){
   const list=Array.isArray(raw)?raw:[];
@@ -1238,7 +1262,7 @@ function renderCoachEditor(){
   if(!box)return;
   box.innerHTML=coachList().map(c=>`
     <div class="coach-edit-row" data-coach-id="${escapeHtml(c.id)}" data-old-name="${escapeHtml(c.name)}">
-      <input class="coach-name-input" value="${escapeHtml(c.name)}" placeholder="Coach name">
+      <input class="coach-name-input" value="${escapeHtml(c.name)}" placeholder="Coach name" oninput="markSettingsDirty()">
       <button class="btn small danger" type="button" onclick="removeCoachEditorRow(this)">Remove</button>
     </div>
   `).join('');
@@ -1249,14 +1273,16 @@ function addCoachEditorRow(){
   row.className='coach-edit-row';
   row.dataset.coachId='coach_'+Date.now();
   row.dataset.oldName='';
-  row.innerHTML='<input class="coach-name-input" placeholder="Coach name"><button class="btn small danger" type="button" onclick="removeCoachEditorRow(this)">Remove</button>';
+  row.innerHTML='<input class="coach-name-input" placeholder="Coach name" oninput="markSettingsDirty()"><button class="btn small danger" type="button" onclick="removeCoachEditorRow(this)">Remove</button>';
   box.appendChild(row);
+  markSettingsDirty();
   row.querySelector('input').focus();
 }
 function removeCoachEditorRow(btn){
   const rows=[...document.querySelectorAll('#coachEditor .coach-edit-row')];
   if(rows.length<=1)return toast('Keep at least one coach');
   btn.closest('.coach-edit-row').remove();
+  markSettingsDirty();
 }
 function populateCoachOptions(selected=''){
   const sel=document.getElementById('fCoach');
@@ -1674,10 +1700,12 @@ async function sendWhatsApp(id,type){
 }
 
 async function saveSettings(){
+  if(settingsSaving)return;
+
   const academy=document.getElementById('setAcademyName').value.trim()||'Hauxing Table Tennis Academy';
   const lead=FEE_PAYMENT_WINDOW_DAYS;
-
   const rows=[...document.querySelectorAll('#coachEditor .coach-edit-row')];
+
   const mappings=rows.map(row=>({
     id:String(row.dataset.coachId||('coach_'+Date.now())),
     oldName:String(row.dataset.oldName||'').trim(),
@@ -1692,16 +1720,41 @@ async function saveSettings(){
     seen.add(key);
     coaches.push({id:m.id,name:m.newName});
   }
+
   if(!coaches.length)return toast('Add at least one coach');
 
+  settingsSaving=true;
+  const saveBtn=document.getElementById('saveSettingsButton');
+  if(saveBtn){
+    saveBtn.disabled=true;
+    saveBtn.textContent='Saving…';
+  }
+
   try{
-    await db('academy_settings',{
+    // Save and REQUIRE Supabase to return the actual saved row.
+    const savedRows=await db('academy_settings',{
       method:'PATCH',
       query:'?id=eq.1',
-      body:{academy_name:academy,reminder_lead_days:lead,coaches},
-      prefer:'return=minimal'
+      body:{
+        academy_name:academy,
+        reminder_lead_days:lead,
+        coaches
+      },
+      prefer:'return=representation'
     });
 
+    const saved=savedRows?.[0];
+    if(!saved)throw new Error('Supabase did not return the saved settings row.');
+
+    const returnedCoaches=normalizeCoaches(saved.coaches);
+    const requestedNames=coaches.map(c=>c.name);
+    const returnedNames=returnedCoaches.map(c=>c.name);
+
+    if(JSON.stringify(requestedNames)!==JSON.stringify(returnedNames)){
+      throw new Error('Supabase returned different coach names than the names you saved.');
+    }
+
+    // Now update all existing students whose old coach name changed.
     for(const m of mappings){
       if(m.oldName && m.oldName!==m.newName){
         await db('students',{
@@ -1713,13 +1766,33 @@ async function saveSettings(){
       }
     }
 
-    const fresh=await db('academy_settings',{query:'?select=*&id=eq.1'});
-    if(fresh?.[0])state.settings=fresh[0];
+    // Adopt the confirmed database response.
+    state.settings=saved;
+    state.settings.coaches=returnedCoaches;
     state.students=await db('students',{query:'?select=*&order=student_name.asc'});
+
+    settingsDirty=false;
+    settingsSaving=false;
+
     renderAll();
-    toast('Coach names saved successfully');
+
+    if(saveBtn){
+      saveBtn.disabled=false;
+      saveBtn.textContent='Saved';
+      setTimeout(()=>{if(saveBtn)saveBtn.textContent='Save Settings'},1200);
+    }
+
+    toast('Coach names saved permanently');
   }catch(e){
-    console.error(e);
+    console.error('Settings save failed',e);
+    settingsSaving=false;
+    settingsDirty=true;
+
+    if(saveBtn){
+      saveBtn.disabled=false;
+      saveBtn.textContent='Retry Save';
+    }
+
     toast('Coach save failed: '+e.message);
   }
 }
