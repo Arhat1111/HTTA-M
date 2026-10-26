@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Hauxing Table Tennis Academy v1.7</title>
+<title>Hauxing Table Tennis Academy v1.8</title>
 <style>
 :root{
   --bg:#f5f5f1;--card:#fff;--ink:#111;--muted:#71716b;--line:#d9d9d3;
@@ -184,7 +184,7 @@ tr:last-child td{border-bottom:0}
   .sidebar{display:none}
   .kpi-grid{grid-template-columns:1fr 1fr}
   .bottom-nav{
-    display:grid;grid-template-columns:repeat(5,1fr);position:fixed;z-index:50;
+    display:grid;grid-template-columns:repeat(6,minmax(0,1fr));position:fixed;z-index:50;
     left:0;right:0;bottom:0;background:rgba(255,255,255,.96);
     backdrop-filter:blur(12px);border-top:1px solid var(--line);
     padding:6px max(6px,env(safe-area-inset-left)) calc(6px + env(safe-area-inset-bottom)) max(6px,env(safe-area-inset-right))
@@ -221,6 +221,14 @@ tr:last-child td{border-bottom:0}
 .month-card-top{display:flex;justify-content:space-between;align-items:center;gap:10px}
 .month-badge{display:inline-flex;border:1px solid currentColor;border-radius:999px;padding:4px 7px;font-size:9px;font-weight:900}
 @media(max-width:720px){.portfolio-grid{grid-template-columns:1fr 1fr}}
+
+.monthly-row{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(120px,.8fr) minmax(120px,.9fr) auto;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid #eee}
+.monthly-row:last-child{border-bottom:0}
+.monthly-main{min-width:0}
+.monthly-title{font-weight:900}
+.monthly-meta{font-size:10px;color:var(--muted);margin-top:3px;line-height:1.45}
+.monthly-amount{text-align:right;font-weight:900}
+@media(max-width:720px){.monthly-row{grid-template-columns:1fr 1fr;gap:8px}.monthly-main{grid-column:1/-1}.monthly-amount{text-align:left}}
 </style>
 </head>
 <body>
@@ -268,6 +276,7 @@ tr:last-child td{border-bottom:0}
     <aside class="sidebar">
       <button class="navbtn active" data-page="dashboard" onclick="go('dashboard')">Dashboard</button>
       <button class="navbtn" data-page="students" onclick="go('students')">Students</button>
+      <button class="navbtn" data-page="monthly" onclick="go('monthly')">Monthly</button>
       <button class="navbtn" data-page="fees" onclick="go('fees')">Fees</button>
       <button class="navbtn" data-page="messages" onclick="go('messages')">WhatsApp</button>
       <button class="navbtn" data-page="settings" onclick="go('settings')">Settings</button>
@@ -336,7 +345,7 @@ tr:last-child td{border-bottom:0}
               <div class="kpi-note">cash received this month</div>
             </div>
             <div class="kpi">
-              <div class="kpi-label">New Fee Cycles</div>
+              <div class="kpi-label">Fee Value Started</div>
               <div class="kpi-value" id="monthCycleValue">₹0</div>
               <div class="kpi-note">fee value started this month</div>
             </div>
@@ -346,7 +355,7 @@ tr:last-child td{border-bottom:0}
         <div class="card">
           <div class="card-head">
             <div class="card-title">Attention Needed</div>
-            <div class="smalltext muted">Pending or near cycle end</div>
+            <div class="smalltext muted">Students with outstanding fees</div>
           </div>
           <div id="attentionList"></div>
         </div>
@@ -398,6 +407,72 @@ tr:last-child td{border-bottom:0}
           </div>
         </div>
         <div id="studentsMobile" class="mobile-list"></div>
+      </section>
+
+      <!-- MONTHLY -->
+      <section id="page-monthly" class="page">
+        <div class="page-head">
+          <div>
+            <div class="page-title">Monthly Overview</div>
+            <div class="page-sub">New students, fee cycles and collections for one selected month.</div>
+          </div>
+          <div class="actions">
+            <input id="monthlyPageMonth" type="month" style="width:auto;min-width:155px" onchange="renderMonthlyPage()">
+          </div>
+        </div>
+
+        <div class="kpi-grid">
+          <div class="kpi">
+            <div class="kpi-label">New Students</div>
+            <div class="kpi-value" id="mpNewStudents">0</div>
+            <div class="kpi-note">joined in selected month</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">Payments</div>
+            <div class="kpi-value" id="mpPaymentCount">0</div>
+            <div class="kpi-note">transactions recorded</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">Fees Collected</div>
+            <div class="kpi-value" id="mpCollected">₹0</div>
+            <div class="kpi-note">money received this month</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">Fee Value Started</div>
+            <div class="kpi-value" id="mpFeeStarted">₹0</div>
+            <div class="kpi-note">value of cycles beginning this month</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">New Students</div>
+              <div class="smalltext muted" id="mpStudentsLabel">Selected month</div>
+            </div>
+          </div>
+          <div id="monthlyStudentsList"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">Payments Collected</div>
+              <div class="smalltext muted">Every payment transaction recorded during this month.</div>
+            </div>
+          </div>
+          <div id="monthlyPaymentsList"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">Fee Cycles Started</div>
+              <div class="smalltext muted">Fee plans whose current cycle started in this month.</div>
+            </div>
+          </div>
+          <div id="monthlyCyclesList"></div>
+        </div>
       </section>
 
       <!-- FEES -->
@@ -505,6 +580,7 @@ tr:last-child td{border-bottom:0}
   <nav class="bottom-nav">
     <button class="active" data-page="dashboard" onclick="go('dashboard')">Dashboard</button>
     <button data-page="students" onclick="go('students')">Students</button>
+    <button data-page="monthly" onclick="go('monthly')">Monthly</button>
     <button data-page="fees" onclick="go('fees')">Fees</button>
     <button data-page="messages" onclick="go('messages')">WhatsApp</button>
     <button data-page="settings" onclick="go('settings')">Settings</button>
@@ -653,7 +729,7 @@ tr:last-child td{border-bottom:0}
     </div>
 
     <div class="card">
-      <div class="card-title">Fee Cycles</div>
+      <div class="card-title">Current Fee Cycle</div>
       <div id="portfolioCycles"></div>
     </div>
   </div>
@@ -1017,7 +1093,7 @@ function go(page){
 }
 function renderAll(){
   document.getElementById('brandTitle').textContent=state.settings.academy_name||'Hauxing Table Tennis Academy';
-  renderDashboard(); renderStudents(); renderFees(); renderMessages(); renderSettings();
+  renderDashboard(); renderStudents(); renderMonthlyPage(); renderFees(); renderMessages(); renderSettings();
 }
 function monthKey(dateValue){
   const d=dateOnly(dateValue);
@@ -1091,6 +1167,77 @@ function renderDashboard(){
     </div>`;
   }).join(''):'<div class="empty">No payments recorded yet.</div>';
 }
+function renderMonthlyPage(){
+  const input=document.getElementById('monthlyPageMonth');
+  if(!input)return;
+  if(!input.value)input.value=document.getElementById('dashboardMonth')?.value||currentMonthKey();
+  const selected=input.value||currentMonthKey();
+
+  const newStudents=state.students
+    .filter(s=>monthKey(s.joining_date)===selected)
+    .sort((a,b)=>String(a.joining_date).localeCompare(String(b.joining_date)));
+
+  const payments=state.payments
+    .filter(p=>monthKey(p.payment_date)===selected)
+    .sort((a,b)=>String(b.payment_date).localeCompare(String(a.payment_date)));
+
+  const cycles=state.feeCycles
+    .filter(c=>c.cycle_type==='regular' && monthKey(c.cycle_start)===selected)
+    .sort((a,b)=>String(a.cycle_start).localeCompare(String(b.cycle_start)));
+
+  const collected=payments.reduce((sum,p)=>sum+Number(p.amount||0),0);
+  const feeStarted=cycles.reduce((sum,c)=>sum+Number(c.fee_amount||0),0);
+
+  document.getElementById('mpNewStudents').textContent=newStudents.length;
+  document.getElementById('mpPaymentCount').textContent=payments.length;
+  document.getElementById('mpCollected').textContent=money(collected);
+  document.getElementById('mpFeeStarted').textContent=money(feeStarted);
+  document.getElementById('mpStudentsLabel').textContent=monthLabel(selected);
+
+  document.getElementById('monthlyStudentsList').innerHTML=newStudents.length
+    ? newStudents.map(s=>`
+      <div class="monthly-row">
+        <div class="monthly-main">
+          <div class="monthly-title">${escapeHtml(s.student_name)}</div>
+          <div class="monthly-meta">Joined ${formatDate(s.joining_date)} • ${escapeHtml(s.coach||'No coach')} • ${escapeHtml(s.batch_timing||'No batch')}</div>
+        </div>
+        <div><div class="data-label">Plan</div><div class="data-val">${s.plan_months} month${Number(s.plan_months)===1?'':'s'}</div></div>
+        <div><div class="data-label">Fee</div><div class="data-val">${money(planAmount(s))}</div></div>
+        <div class="monthly-amount"><button class="btn small" onclick="openStudentPortfolio('${s.id}')">Portfolio</button></div>
+      </div>`).join('')
+    : '<div class="empty">No new students joined in this month.</div>';
+
+  document.getElementById('monthlyPaymentsList').innerHTML=payments.length
+    ? payments.map(p=>{
+        const s=state.students.find(x=>x.id===p.student_id);
+        return `<div class="monthly-row">
+          <div class="monthly-main">
+            <div class="monthly-title">${escapeHtml(s?.student_name||'Deleted student')}</div>
+            <div class="monthly-meta">${formatDate(p.payment_date)} • ${escapeHtml(p.payment_method||'No method')}</div>
+          </div>
+          <div><div class="data-label">Plan</div><div class="data-val">${p.plan_months} month${Number(p.plan_months)===1?'':'s'}</div></div>
+          <div><div class="data-label">Period</div><div class="data-val">${formatDate(p.period_start)} → ${formatDate(p.period_end)}</div></div>
+          <div class="monthly-amount">${money(p.amount)}</div>
+        </div>`;
+      }).join('')
+    : '<div class="empty">No payments were recorded in this month.</div>';
+
+  document.getElementById('monthlyCyclesList').innerHTML=cycles.length
+    ? cycles.map(c=>{
+        const s=state.students.find(x=>x.id===c.student_id);
+        return `<div class="monthly-row">
+          <div class="monthly-main">
+            <div class="monthly-title">${escapeHtml(s?.student_name||'Deleted student')}</div>
+            <div class="monthly-meta">${formatDate(c.cycle_start)} to ${formatDate(c.cycle_end)}</div>
+          </div>
+          <div><div class="data-label">Months</div><div class="data-val">${c.months}</div></div>
+          <div><div class="data-label">Paid / Outstanding</div><div class="data-val">${money(c.amount_paid)} / ${money(cycleOutstanding(c))}</div></div>
+          <div class="monthly-amount">${money(c.fee_amount)}</div>
+        </div>`;
+      }).join('')
+    : '<div class="empty">No fee cycles started in this month.</div>';
+}
+
 function filteredStudents(){
   const q=(document.getElementById('studentSearch')?.value||'').trim().toLowerCase();
   const f=document.getElementById('studentFilter')?.value||'all';
@@ -1590,18 +1737,19 @@ function openStudentPortfolio(id){
       <b>${money(p.amount)}</b>
     </div>`).join(''):'<div class="empty">No payments recorded for this student.</div>';
 
-  const cycles=studentCycles(s.id).sort((a,b)=>String(b.cycle_start||'').localeCompare(String(a.cycle_start||'')));
-  document.getElementById('portfolioCycles').innerHTML=cycles.length?cycles.map(c=>`
-    <div class="student-row">
-      <div>
-        <div class="student-name">${c.cycle_type==='legacy_balance'?'Legacy Balance':'Fee Cycle'}</div>
-        <div class="muted">${c.cycle_start?`${formatDate(c.cycle_start)} to ${formatDate(c.cycle_end)} • ${c.months} month${Number(c.months)===1?'':'s'}`:'Prior outstanding balance'}</div>
-      </div>
-      <div style="text-align:right">
-        <div><b>${money(c.fee_amount)}</b></div>
-        <div class="muted">Paid ${money(c.amount_paid)} • Due ${money(cycleOutstanding(c))}</div>
-      </div>
-    </div>`).join(''):'<div class="empty">No fee-cycle history available.</div>';
+  const currentCycle=currentFeeCycle(s);
+  document.getElementById('portfolioCycles').innerHTML=currentCycle
+    ? `<div class="student-row">
+        <div>
+          <div class="student-name">Current Fee Cycle</div>
+          <div class="muted">${formatDate(currentCycle.cycle_start)} to ${formatDate(currentCycle.cycle_end)} • ${currentCycle.months} month${Number(currentCycle.months)===1?'':'s'}</div>
+        </div>
+        <div style="text-align:right">
+          <div><b>${money(currentCycle.fee_amount)}</b></div>
+          <div class="muted">Paid ${money(currentCycle.amount_paid)} • Due ${money(cycleOutstanding(currentCycle))}</div>
+        </div>
+      </div>`
+    : '<div class="empty">No current fee cycle available.</div>';
 
   document.getElementById('portfolioModal').classList.add('open');
 }
