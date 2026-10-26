@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Hauxing Table Tennis Academy v1.6</title>
+<title>Hauxing Table Tennis Academy v1.7</title>
 <style>
 :root{
   --bg:#f5f5f1;--card:#fff;--ink:#111;--muted:#71716b;--line:#d9d9d3;
@@ -1731,30 +1731,42 @@ async function saveSettings(){
   }
 
   try{
-    // Save and REQUIRE Supabase to return the actual saved row.
-    const savedRows=await db('academy_settings',{
-      method:'PATCH',
-      query:'?id=eq.1',
+    // UPSERT row id=1 so this works even if academy_settings row 1
+    // was accidentally missing. Do not depend on PATCH returning a body.
+    await db('academy_settings',{
+      method:'POST',
+      query:'?on_conflict=id',
       body:{
+        id:1,
         academy_name:academy,
         reminder_lead_days:lead,
         coaches
       },
-      prefer:'return=representation'
+      prefer:'resolution=merge-duplicates,return=minimal'
     });
 
-    const saved=savedRows?.[0];
-    if(!saved)throw new Error('Supabase did not return the saved settings row.');
+    // Read the row back from Supabase as the source of truth.
+    const freshRows=await db('academy_settings',{
+      query:'?select=*&id=eq.1'
+    });
+
+    const saved=freshRows?.[0];
+    if(!saved){
+      throw new Error('Settings row id=1 could not be read after saving. Run the v1.7 Supabase repair SQL.');
+    }
 
     const returnedCoaches=normalizeCoaches(saved.coaches);
     const requestedNames=coaches.map(c=>c.name);
     const returnedNames=returnedCoaches.map(c=>c.name);
 
     if(JSON.stringify(requestedNames)!==JSON.stringify(returnedNames)){
-      throw new Error('Supabase returned different coach names than the names you saved.');
+      throw new Error(
+        'Supabase saved different coach names. Saved: '+
+        returnedNames.join(', ')
+      );
     }
 
-    // Now update all existing students whose old coach name changed.
+    // Propagate text renames to existing students.
     for(const m of mappings){
       if(m.oldName && m.oldName!==m.newName){
         await db('students',{
@@ -1766,20 +1778,22 @@ async function saveSettings(){
       }
     }
 
-    // Adopt the confirmed database response.
     state.settings=saved;
     state.settings.coaches=returnedCoaches;
-    state.students=await db('students',{query:'?select=*&order=student_name.asc'});
+    state.students=await db('students',{
+      query:'?select=*&order=student_name.asc'
+    });
 
     settingsDirty=false;
     settingsSaving=false;
-
     renderAll();
 
     if(saveBtn){
       saveBtn.disabled=false;
       saveBtn.textContent='Saved';
-      setTimeout(()=>{if(saveBtn)saveBtn.textContent='Save Settings'},1200);
+      setTimeout(()=>{
+        if(saveBtn)saveBtn.textContent='Save Settings';
+      },1200);
     }
 
     toast('Coach names saved permanently');
