@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Hauxing Table Tennis Academy v1.4</title>
+<title>Hauxing Table Tennis Academy v1.5</title>
 <style>
 :root{
   --bg:#f5f5f1;--card:#fff;--ink:#111;--muted:#71716b;--line:#d9d9d3;
@@ -209,6 +209,18 @@ tr:last-child td{border-bottom:0}
   .top-actions .btn{display:none}
   .student-actions{grid-template-columns:1fr 1fr}
 }
+
+.coach-edit-row{display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:8px}
+.portfolio-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.portfolio-box{background:#f7f7f3;border:1px solid var(--line);border-radius:12px;padding:10px}
+.month-timeline{display:grid;gap:8px;margin-top:10px}
+.month-card{border:1px solid var(--line);border-radius:13px;padding:11px;background:#fff}
+.month-card.current{border:2px solid #111}
+.month-card.newmonth{background:#111;color:#fff}
+.month-card.newmonth .muted{color:#ddd}
+.month-card-top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.month-badge{display:inline-flex;border:1px solid currentColor;border-radius:999px;padding:4px 7px;font-size:9px;font-weight:900}
+@media(max-width:720px){.portfolio-grid{grid-template-columns:1fr 1fr}}
 </style>
 </head>
 <body>
@@ -603,6 +615,46 @@ tr:last-child td{border-bottom:0}
     <div class="form-actions">
       <button class="btn" onclick="closeModal('paymentModal')">Cancel</button>
       <button class="btn primary" onclick="recordPayment()">Save Payment</button>
+    </div>
+  </div>
+</div>
+
+
+<div id="portfolioModal" class="modal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title" id="portfolioTitle">Student Portfolio</div>
+        <div class="smalltext muted" id="portfolioSubtitle"></div>
+      </div>
+      <button class="btn small" onclick="closeModal('portfolioModal')">Close</button>
+    </div>
+
+    <div class="portfolio-grid">
+      <div class="portfolio-box"><div class="data-label">Current Plan</div><div class="data-val" id="pfPlan">—</div></div>
+      <div class="portfolio-box"><div class="data-label">Plan Fee</div><div class="data-val" id="pfFee">—</div></div>
+      <div class="portfolio-box"><div class="data-label">Outstanding</div><div class="data-val" id="pfOutstanding">—</div></div>
+      <div class="portfolio-box"><div class="data-label">Pay By</div><div class="data-val" id="pfPayBy">—</div></div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <div class="card-head">
+        <div>
+          <div class="card-title">Month-by-Month Plan</div>
+          <div class="smalltext muted">Each plan month is a 30-day period.</div>
+        </div>
+      </div>
+      <div id="portfolioMonths" class="month-timeline"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Payments</div>
+      <div id="portfolioPayments"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Fee Cycles</div>
+      <div id="portfolioCycles"></div>
     </div>
   </div>
 </div>
@@ -1043,14 +1095,14 @@ function renderStudents(){
   tbody.innerHTML=rows.map(s=>{
     const st=statusText(s);
     return `<tr>
-      <td><b>${escapeHtml(s.student_name)}</b><br><span class="muted">${escapeHtml(s.parent_phone)}</span></td>
+      <td><b>${escapeHtml(s.student_name)}</b>${(()=>{const m=currentPlanMonth(s);return m&&isNewMonthWindow(m)?'<br><span class="status due">NEW MONTH</span>':''})()}<br><span class="muted">${escapeHtml(s.parent_phone)}</span></td>
       <td>${escapeHtml(s.coach)}<br><span class="muted">${escapeHtml(s.batch_timing||'—')}</span></td>
       <td>${s.plan_months} mo<br><span class="muted">Plan fee ${money(planAmount(s))}</span></td>
       <td><span class="status ${st.cls}">${st.label}</span></td>
       <td>${formatDate(s.cycle_start)}<br><span class="muted">to ${formatDate(s.cycle_end)}</span><br><b>Pay by ${formatDate(feeDueDate(s))}</b></td>
       <td><b>${money(s.pending_amount)}</b></td>
       <td><div class="row-actions">
-        <button class="btn small" onclick="editStudent('${s.id}')">Edit</button>
+        <button class="btn small" onclick="editStudent('${s.id}')">Edit</button><button class="btn small" onclick="openStudentPortfolio('${s.id}')">Portfolio</button>
         <button class="btn small" onclick="openPayment('${s.id}')">Payment</button>
         <button class="btn small" onclick="sendWhatsApp('${s.id}','fee_due')">WhatsApp</button>
         <button class="btn small danger" onclick="deleteStudent('${s.id}')">Delete</button>
@@ -1063,7 +1115,10 @@ function renderStudents(){
     return `<div class="student-card">
       <div class="student-top">
         <div><div class="student-name">${escapeHtml(s.student_name)}</div><div class="student-meta">${escapeHtml(s.parent_phone)}<br>${escapeHtml(s.coach)} • ${escapeHtml(s.batch_timing||'No batch')}</div></div>
-        <span class="status ${st.cls}">${st.label}</span>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">
+          ${(()=>{const m=currentPlanMonth(s);return m&&isNewMonthWindow(m)?'<span class="status due">NEW MONTH</span>':''})()}
+          <span class="status ${st.cls}">${st.label}</span>
+        </div>
       </div>
       <div class="student-grid">
         <div class="data-box"><div class="data-label">Plan</div><div class="data-val">${s.plan_months} mo • ${money(planAmount(s))}</div></div>
@@ -1073,7 +1128,7 @@ function renderStudents(){
         <div class="data-box"><div class="data-label">Fee Pay By</div><div class="data-val">${formatDate(feeDueDate(s))}</div></div>
       </div>
       <div class="student-actions">
-        <button class="btn" onclick="editStudent('${s.id}')">Edit</button>
+        <button class="btn" onclick="editStudent('${s.id}')">Edit</button><button class="btn" onclick="openStudentPortfolio('${s.id}')">Portfolio</button>
         <button class="btn primary" onclick="openPayment('${s.id}')">Payment</button>
         <button class="btn" onclick="sendWhatsApp('${s.id}','fee_due')">WhatsApp</button>
         <button class="btn danger" onclick="deleteStudent('${s.id}')">Delete</button>
@@ -1158,19 +1213,32 @@ function renderMessages(){
 function renderSettings(){
   document.getElementById('setAcademyName').value=state.settings.academy_name||'';
   document.getElementById('setLeadDays').value=FEE_PAYMENT_WINDOW_DAYS;
+  state.settings.coaches=normalizeCoaches(state.settings.coaches);
   renderCoachEditor();
   populateCoachOptions();
 }
+function normalizeCoaches(raw){
+  const list=Array.isArray(raw)?raw:[];
+  return list.map((c,i)=>{
+    if(typeof c==='string'){
+      return {id:'coach_'+(i+1),name:c};
+    }
+    return {id:String(c?.id||('coach_'+(i+1))),name:String(c?.name||'').trim()};
+  }).filter(c=>c.name);
+}
 function coachList(){
-  const list=Array.isArray(state.settings.coaches)?state.settings.coaches.filter(Boolean):[];
-  return list.length?list:['Coach 1','Coach 2'];
+  const list=normalizeCoaches(state.settings.coaches);
+  return list.length?list:[
+    {id:'coach_1',name:'Coach 1'},
+    {id:'coach_2',name:'Coach 2'}
+  ];
 }
 function renderCoachEditor(){
   const box=document.getElementById('coachEditor');
   if(!box)return;
-  box.innerHTML=coachList().map((c,i)=>`
-    <div class="coach-edit-row" data-old-coach="${escapeHtml(c)}" style="display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:7px">
-      <input class="coach-name-input" value="${escapeHtml(c)}" placeholder="Coach name">
+  box.innerHTML=coachList().map(c=>`
+    <div class="coach-edit-row" data-coach-id="${escapeHtml(c.id)}" data-old-name="${escapeHtml(c.name)}">
+      <input class="coach-name-input" value="${escapeHtml(c.name)}" placeholder="Coach name">
       <button class="btn small danger" type="button" onclick="removeCoachEditorRow(this)">Remove</button>
     </div>
   `).join('');
@@ -1179,8 +1247,8 @@ function addCoachEditorRow(){
   const box=document.getElementById('coachEditor');
   const row=document.createElement('div');
   row.className='coach-edit-row';
-  row.dataset.oldCoach='';
-  row.style.cssText='display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:7px';
+  row.dataset.coachId='coach_'+Date.now();
+  row.dataset.oldName='';
   row.innerHTML='<input class="coach-name-input" placeholder="Coach name"><button class="btn small danger" type="button" onclick="removeCoachEditorRow(this)">Remove</button>';
   box.appendChild(row);
   row.querySelector('input').focus();
@@ -1193,7 +1261,12 @@ function removeCoachEditorRow(btn){
 function populateCoachOptions(selected=''){
   const sel=document.getElementById('fCoach');
   const coaches=coachList();
-  sel.innerHTML=coaches.map(c=>`<option ${c===selected?'selected':''}>${escapeHtml(c)}</option>`).join('');
+  const selectedCoach=coaches.find(c=>c.id===selected || c.name===selected);
+  sel.innerHTML=coaches.map(c=>`<option value="${escapeHtml(c.id)}" ${selectedCoach?.id===c.id?'selected':''}>${escapeHtml(c.name)}</option>`).join('');
+}
+function coachNameFromValue(value){
+  const c=coachList().find(x=>x.id===value || x.name===value);
+  return c?.name || value || '';
 }
 function openStudentModal(id=''){
   document.getElementById('studentId').value=id;
@@ -1226,7 +1299,8 @@ async function saveStudent(){
   const id=document.getElementById('studentId').value;
   const name=document.getElementById('fName').value.trim();
   const phone=document.getElementById('fPhone').value.trim();
-  const coach=document.getElementById('fCoach').value;
+  const coachId=document.getElementById('fCoach').value;
+  const coach=coachNameFromValue(coachId);
   const batch=document.getElementById('fBatch').value.trim();
   const join=document.getElementById('fJoin').value;
   const months=Math.floor(Number(document.getElementById('fPlan').value||0));
@@ -1430,6 +1504,82 @@ async function recordPayment(){
     await loadAll(false);
   }catch(e){toast('Payment failed: '+e.message)}
 }
+function buildPlanMonths(student){
+  const months=Math.max(1,Math.floor(Number(student.plan_months||1)));
+  const start=dateOnly(student.cycle_start||student.joining_date);
+  const result=[];
+  if(!start)return result;
+  for(let i=0;i<months;i++){
+    const monthStart=addDays(start,i*30);
+    const monthEnd=addDays(monthStart,29);
+    result.push({index:i+1,start:monthStart,end:monthEnd});
+  }
+  return result;
+}
+function currentPlanMonth(student){
+  const t=todayISO();
+  return buildPlanMonths(student).find(m=>t>=m.start && t<=m.end) || null;
+}
+function isNewMonthWindow(month){
+  if(!month)return false;
+  const diff=daysBetween(month.start,todayISO());
+  return diff>=0 && diff<=2;
+}
+function openStudentPortfolio(id){
+  const s=state.students.find(x=>x.id===id);
+  if(!s)return;
+
+  document.getElementById('portfolioTitle').textContent=s.student_name;
+  document.getElementById('portfolioSubtitle').textContent=
+    `${s.coach||'No coach'} • ${s.batch_timing||'No batch'} • Joined ${formatDate(s.joining_date)}`;
+  document.getElementById('pfPlan').textContent=`${s.plan_months} month${Number(s.plan_months)===1?'':'s'}`;
+  document.getElementById('pfFee').textContent=money(planAmount(s));
+  document.getElementById('pfOutstanding').textContent=money(s.pending_amount);
+  document.getElementById('pfPayBy').textContent=formatDate(feeDueDate(s));
+
+  const current=currentPlanMonth(s);
+  const months=buildPlanMonths(s);
+
+  document.getElementById('portfolioMonths').innerHTML=months.map(m=>{
+    const isCurrent=current?.index===m.index;
+    const isNew=isCurrent && isNewMonthWindow(m);
+    const badge=isNew?'NEW MONTH':isCurrent?'CURRENT MONTH':todayISO()>m.end?'COMPLETED':'UPCOMING';
+    return `
+      <div class="month-card ${isCurrent?'current':''} ${isNew?'newmonth':''}">
+        <div class="month-card-top">
+          <div>
+            <div style="font-weight:900">Month ${m.index}</div>
+            <div class="smalltext muted">${formatDate(m.start)} to ${formatDate(m.end)}</div>
+          </div>
+          <span class="month-badge">${badge}</span>
+        </div>
+        ${isCurrent?`<div class="smalltext" style="margin-top:7px;font-weight:800">${isNew?'A new month has started for this student. ':''}Current plan month.</div>`:''}
+      </div>`;
+  }).join('');
+
+  const pays=state.payments.filter(p=>p.student_id===s.id);
+  document.getElementById('portfolioPayments').innerHTML=pays.length?pays.map(p=>`
+    <div class="student-row">
+      <div><div class="student-name">${formatDate(p.payment_date)}</div><div class="muted">${escapeHtml(p.payment_method||'')} ${p.notes?'• '+escapeHtml(p.notes):''}</div></div>
+      <b>${money(p.amount)}</b>
+    </div>`).join(''):'<div class="empty">No payments recorded for this student.</div>';
+
+  const cycles=studentCycles(s.id).sort((a,b)=>String(b.cycle_start||'').localeCompare(String(a.cycle_start||'')));
+  document.getElementById('portfolioCycles').innerHTML=cycles.length?cycles.map(c=>`
+    <div class="student-row">
+      <div>
+        <div class="student-name">${c.cycle_type==='legacy_balance'?'Legacy Balance':'Fee Cycle'}</div>
+        <div class="muted">${c.cycle_start?`${formatDate(c.cycle_start)} to ${formatDate(c.cycle_end)} • ${c.months} month${Number(c.months)===1?'':'s'}`:'Prior outstanding balance'}</div>
+      </div>
+      <div style="text-align:right">
+        <div><b>${money(c.fee_amount)}</b></div>
+        <div class="muted">Paid ${money(c.amount_paid)} • Due ${money(cycleOutstanding(c))}</div>
+      </div>
+    </div>`).join(''):'<div class="empty">No fee-cycle history available.</div>';
+
+  document.getElementById('portfolioModal').classList.add('open');
+}
+
 function whatsappPhone(rawPhone){
   let p=String(rawPhone||'').replace(/\D/g,'');
   if(p.length===10)p='91'+p;
@@ -1529,43 +1679,50 @@ async function saveSettings(){
 
   const rows=[...document.querySelectorAll('#coachEditor .coach-edit-row')];
   const mappings=rows.map(row=>({
-    oldName:String(row.dataset.oldCoach||'').trim(),
+    id:String(row.dataset.coachId||('coach_'+Date.now())),
+    oldName:String(row.dataset.oldName||'').trim(),
     newName:String(row.querySelector('.coach-name-input')?.value||'').trim()
   })).filter(x=>x.newName);
 
-  const coaches=[...new Set(mappings.map(x=>x.newName))];
+  const coaches=[];
+  const seen=new Set();
+  for(const m of mappings){
+    const key=m.newName.toLowerCase();
+    if(seen.has(key))continue;
+    seen.add(key);
+    coaches.push({id:m.id,name:m.newName});
+  }
   if(!coaches.length)return toast('Add at least one coach');
 
   try{
-    // Rename existing student assignments before saving the new coach list.
-    for(const map of mappings){
-      if(map.oldName && map.oldName!==map.newName){
+    await db('academy_settings',{
+      method:'PATCH',
+      query:'?id=eq.1',
+      body:{academy_name:academy,reminder_lead_days:lead,coaches},
+      prefer:'return=minimal'
+    });
+
+    for(const m of mappings){
+      if(m.oldName && m.oldName!==m.newName){
         await db('students',{
           method:'PATCH',
-          query:'?coach=eq.'+encodeURIComponent(map.oldName),
-          body:{coach:map.newName},
+          query:'?coach=eq.'+encodeURIComponent(m.oldName),
+          body:{coach:m.newName},
           prefer:'return=minimal'
         });
       }
     }
 
-    await db('academy_settings',{
-      method:'PATCH',
-      query:'?id=eq.1',
-      body:{
-        academy_name:academy,
-        reminder_lead_days:lead,
-        coaches
-      },
-      prefer:'return=minimal'
-    });
-
-    toast('Settings and coach names saved');
-    await loadAll(false);
-  }catch(e){toast('Settings failed: '+e.message)}
+    const fresh=await db('academy_settings',{query:'?select=*&id=eq.1'});
+    if(fresh?.[0])state.settings=fresh[0];
+    state.students=await db('students',{query:'?select=*&order=student_name.asc'});
+    renderAll();
+    toast('Coach names saved successfully');
+  }catch(e){
+    console.error(e);
+    toast('Coach save failed: '+e.message);
+  }
 }
-document.getElementById('dashboardMonth').value=currentMonthKey();
-
 (async function boot(){
   session=loadSession();
   if(session){
