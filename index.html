@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Hauxing Table Tennis Academy v1.3</title>
+<title>Hauxing Table Tennis Academy v1.4</title>
 <style>
 :root{
   --bg:#f5f5f1;--card:#fff;--ink:#111;--muted:#71716b;--line:#d9d9d3;
@@ -268,9 +268,10 @@ tr:last-child td{border-bottom:0}
         <div class="page-head">
           <div>
             <div class="page-title">Dashboard</div>
-            <div class="page-sub">Academy overview and current fee status.</div>
+            <div class="page-sub">Academy overview, collections and monthly performance.</div>
           </div>
           <div class="actions">
+            <input id="dashboardMonth" type="month" style="width:auto;min-width:155px" onchange="renderDashboard()">
             <button class="btn primary" onclick="openStudentModal()">+ Add Student</button>
           </div>
         </div>
@@ -295,6 +296,38 @@ tr:last-child td{border-bottom:0}
             <div class="kpi-label">Payments</div>
             <div class="kpi-value" id="kpiPayments">₹0</div>
             <div class="kpi-note">recorded total</div>
+          </div>
+        </div>
+
+
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">Monthly Overview</div>
+              <div class="smalltext muted" id="monthlyOverviewLabel">Selected month</div>
+            </div>
+          </div>
+          <div class="kpi-grid">
+            <div class="kpi">
+              <div class="kpi-label">New Students</div>
+              <div class="kpi-value" id="monthNewStudents">0</div>
+              <div class="kpi-note">joined this month</div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-label">Payments</div>
+              <div class="kpi-value" id="monthPaymentCount">0</div>
+              <div class="kpi-note">transactions this month</div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-label">Fees Collected</div>
+              <div class="kpi-value" id="monthCollected">₹0</div>
+              <div class="kpi-note">cash received this month</div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-label">New Fee Cycles</div>
+              <div class="kpi-value" id="monthCycleValue">₹0</div>
+              <div class="kpi-note">fee value started this month</div>
+            </div>
           </div>
         </div>
 
@@ -421,19 +454,21 @@ tr:last-child td{border-bottom:0}
               <input id="setAcademyName">
             </div>
             <div>
-              <label>Default Monthly Fee</label>
-              <input id="setDefaultFee" type="number" min="0" step="0.01">
-            </div>
-            <div>
               <label>Fee Payment Window</label>
               <input id="setLeadDays" type="number" value="3" readonly>
-              <div class="smalltext muted" style="margin-top:5px">Fixed: fees must be collected within the first 3 calendar days of each fee cycle.</div>
-            </div>
-            <div>
-              <label>Coaches (comma separated)</label>
-              <input id="setCoaches">
+              <div class="smalltext muted" style="margin-top:5px">Fixed: fees must be collected within the first 3 calendar days of every fee cycle.</div>
             </div>
           </div>
+
+          <div style="margin-top:16px">
+            <div class="card-title">Coaches</div>
+            <div class="smalltext muted" style="margin:4px 0 10px">
+              Edit a coach name here and save. Existing students assigned to that coach will also be updated.
+            </div>
+            <div id="coachEditor"></div>
+            <button class="btn small" type="button" style="margin-top:8px" onclick="addCoachEditorRow()">+ Add Coach</button>
+          </div>
+
           <div class="form-actions">
             <button class="btn primary" onclick="saveSettings()">Save Settings</button>
           </div>
@@ -495,16 +530,13 @@ tr:last-child td{border-bottom:0}
         <input id="fJoin" type="date">
       </div>
       <div>
-        <label>Fee Plan *</label>
-        <select id="fPlan" onchange="updateStudentPreview()">
-          <option value="1">1 Month (30 days)</option>
-          <option value="3">3 Months (90 days)</option>
-          <option value="12">12 Months (360 days)</option>
-        </select>
+        <label>Number of Months *</label>
+        <input id="fPlan" type="number" min="1" max="60" step="1" value="1" oninput="updateStudentPreview()">
       </div>
       <div>
-        <label>Monthly Fee *</label>
-        <input id="fMonthlyFee" type="number" min="0" step="0.01" oninput="updateStudentPreview()">
+        <label>Total Fee Amount for This Plan *</label>
+        <input id="fPlanFee" type="number" min="0" step="0.01" placeholder="Enter the agreed fee amount" oninput="updateStudentPreview()">
+        <div class="smalltext muted" style="margin-top:5px">No fixed monthly fee is assumed. Enter the actual fee agreed for this student's selected number of months.</div>
       </div>
       <div>
         <label>Fee Paid?</label>
@@ -584,8 +616,8 @@ const SESSION_KEY='htta_session_v1';
 
 let session=null;
 let state={
-  settings:{id:1,academy_name:'Hauxing Table Tennis Academy',default_monthly_fee:3000,reminder_lead_days:2,coaches:['Coach 1','Coach 2']},
-  students:[],payments:[],renewals:[],messages:[]
+  settings:{id:1,academy_name:'Hauxing Table Tennis Academy',reminder_lead_days:3,coaches:['Coach 1','Coach 2']},
+  students:[],payments:[],renewals:[],messages:[],feeCycles:[]
 };
 let pollTimer=null;
 let loading=false;
@@ -625,7 +657,26 @@ function feeDeadlineStatus(s){
   if(diff===0)return {label:`Due today (${formatDate(due)})`,overdue:false,due:true};
   return {label:`Pay by ${formatDate(due)}`,overdue:false,due:true};
 }
-function planAmount(student){return Number(student.monthly_fee||0)*Number(student.plan_months||1)}
+function planAmount(student){
+  const explicit=Number(student?.plan_fee_amount||0);
+  if(explicit>0)return explicit;
+  return Number(student?.monthly_fee||0)*Number(student?.plan_months||1);
+}
+function cycleOutstanding(cycle){return Math.max(0,Number(cycle?.fee_amount||0)-Number(cycle?.amount_paid||0))}
+function studentCycles(studentId){
+  return state.feeCycles.filter(c=>c.student_id===studentId);
+}
+function studentOutstanding(studentId){
+  return studentCycles(studentId).reduce((sum,c)=>sum+cycleOutstanding(c),0);
+}
+function unpaidCycleCount(studentId){
+  return studentCycles(studentId).filter(c=>cycleOutstanding(c)>0.005).length;
+}
+function currentFeeCycle(student){
+  return state.feeCycles.find(c=>c.student_id===student.id && c.cycle_type==='regular' && dateOnly(c.cycle_start)===dateOnly(student.cycle_start))
+    || state.feeCycles.find(c=>c.student_id===student.id && c.cycle_type==='regular' && dateOnly(c.cycle_end)===dateOnly(student.cycle_end))
+    || null;
+}
 function formatDate(s){
   if(!s)return '—';
   try{return parseDate(dateOnly(s)).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}catch(e){return s}
@@ -740,17 +791,16 @@ async function loadAll(showToast=false){
   if(loading)return;
   loading=true; setSync('Syncing…');
   try{
-    const [settings,students,payments,renewals,messages]=await Promise.all([
+    const [settings,students,payments,renewals,messages,feeCycles]=await Promise.all([
       db('academy_settings',{query:'?select=*&id=eq.1'}),
       db('students',{query:'?select=*&order=student_name.asc'}),
       db('payments',{query:'?select=*&order=payment_date.desc,created_at.desc'}),
       db('renewals',{query:'?select=*&order=created_at.desc'}),
-      db('message_logs',{query:'?select=*&order=created_at.desc'})
+      db('message_logs',{query:'?select=*&order=created_at.desc'}),
+      db('fee_cycles',{query:'?select=*&order=cycle_start.asc.nullsfirst,created_at.asc'})
     ]);
-    if(settings?.[0])state.settings=settings[0];
 
-    // V1.3 rule: every fee cycle must be paid within its first 3 calendar days.
-    // Keep the existing database column for compatibility, but normalize it to 3.
+    if(settings?.[0])state.settings=settings[0];
     if(Number(state.settings.reminder_lead_days)!==FEE_PAYMENT_WINDOW_DAYS){
       await db('academy_settings',{
         method:'PATCH',
@@ -765,37 +815,95 @@ async function loadAll(showToast=false){
     state.payments=payments||[];
     state.renewals=renewals||[];
     state.messages=messages||[];
+    state.feeCycles=feeCycles||[];
 
     await reconcileExpiredCycles();
+    await syncStudentBalancesFromLedger();
+
     renderAll();
     setSync('Cloud synced');
     if(showToast)toast('Latest Supabase data loaded');
   }catch(e){
     setSync('Sync failed');
+    if(/fee_cycles|relation .* does not exist/i.test(e.message||'')){
+      toast('Run SUPABASE_V1_4_MIGRATION.sql first, then refresh.');
+    }else{
+      toast('Sync error: '+e.message);
+    }
     if(/expired|jwt|session/i.test(e.message)){logout();return}
-    toast('Sync error: '+e.message);
   }finally{loading=false}
+}
+
+async function syncStudentBalancesFromLedger(){
+  let changed=false;
+  for(const s of state.students){
+    const pending=studentOutstanding(s.id);
+    const cycles=unpaidCycleCount(s.id);
+    const paid=pending<=0.005;
+    if(
+      Math.abs(Number(s.pending_amount||0)-pending)>0.005 ||
+      Number(s.pending_cycles||0)!==cycles ||
+      Boolean(s.fee_paid)!==paid
+    ){
+      await db('students',{
+        method:'PATCH',
+        query:'?id=eq.'+encodeURIComponent(s.id),
+        body:{pending_amount:pending,pending_cycles:cycles,fee_paid:paid},
+        prefer:'return=minimal'
+      });
+      s.pending_amount=pending;
+      s.pending_cycles=cycles;
+      s.fee_paid=paid;
+      changed=true;
+    }
+  }
+  if(changed){
+    state.students=await db('students',{query:'?select=*&order=student_name.asc'});
+  }
 }
 
 async function reconcileExpiredCycles(){
   const today=todayISO();
   let changed=false;
 
-  for(const s of [...state.students]){
-    if(!s.active || !s.cycle_end)continue;
-
-    let working={...s};
+  for(const original of [...state.students]){
+    if(!original.active || !original.cycle_end)continue;
+    let working={...original};
     let safety=0;
 
-    while(dateOnly(working.cycle_end)<today && safety<24){
+    while(dateOnly(working.cycle_end)<today && safety<36){
       safety++;
       const oldStart=dateOnly(working.cycle_start);
       const oldEnd=dateOnly(working.cycle_end);
       const newStart=addDays(oldEnd,1);
-      const newEnd=cycleEnd(newStart,working.plan_months);
+      const months=Math.max(1,Math.floor(Number(working.plan_months||1)));
+      const newEnd=cycleEnd(newStart,months);
       const amount=planAmount(working);
-      const newPending=Number(working.pending_amount||0)+amount;
-      const newCycles=Number(working.pending_cycles||0)+1;
+
+      // Create a new independent fee-cycle ledger row. This prevents old
+      // payments from being mixed into the new cycle.
+      const existing=state.feeCycles.find(c=>
+        c.student_id===working.id &&
+        c.cycle_type==='regular' &&
+        dateOnly(c.cycle_start)===newStart
+      );
+
+      if(!existing){
+        const created=await db('fee_cycles',{
+          method:'POST',
+          body:{
+            student_id:working.id,
+            cycle_type:'regular',
+            cycle_start:newStart,
+            cycle_end:newEnd,
+            months,
+            fee_amount:amount,
+            amount_paid:0
+          },
+          prefer:'return=representation'
+        });
+        if(created?.[0])state.feeCycles.push(created[0]);
+      }
 
       const rows=await db('students',{
         method:'PATCH',
@@ -803,13 +911,10 @@ async function reconcileExpiredCycles(){
         body:{
           cycle_start:newStart,
           cycle_end:newEnd,
-          pending_amount:newPending,
-          pending_cycles:newCycles,
           fee_paid:false
         },
         prefer:'return=representation'
       });
-
       if(!Array.isArray(rows)||!rows.length)break;
 
       working=rows[0];
@@ -823,7 +928,7 @@ async function reconcileExpiredCycles(){
           old_end:oldEnd,
           new_start:newStart,
           new_end:newEnd,
-          plan_months:Number(working.plan_months),
+          plan_months:months,
           amount_added:amount
         },
         prefer:'return=minimal'
@@ -834,9 +939,9 @@ async function reconcileExpiredCycles(){
   if(changed){
     state.students=await db('students',{query:'?select=*&order=student_name.asc'});
     state.renewals=await db('renewals',{query:'?select=*&order=created_at.desc'});
+    state.feeCycles=await db('fee_cycles',{query:'?select=*&order=cycle_start.asc.nullsfirst,created_at.asc'});
   }
 }
-
 function go(page){
   document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
   document.getElementById('page-'+page).classList.add('active');
@@ -847,11 +952,20 @@ function renderAll(){
   document.getElementById('brandTitle').textContent=state.settings.academy_name||'Hauxing Table Tennis Academy';
   renderDashboard(); renderStudents(); renderFees(); renderMessages(); renderSettings();
 }
+function monthKey(dateValue){
+  const d=dateOnly(dateValue);
+  return d?d.slice(0,7):'';
+}
+function currentMonthKey(){return todayISO().slice(0,7)}
+function monthLabel(key){
+  if(!key)return '';
+  const [y,m]=key.split('-').map(Number);
+  return new Date(y,m-1,1).toLocaleDateString('en-IN',{month:'long',year:'numeric'});
+}
 function renderDashboard(){
   const active=state.students.filter(s=>s.active);
-  const pendingStudents=active.filter(s=>Number(s.pending_amount||0)>0);
+  const pendingStudents=active.filter(s=>Number(s.pending_amount||0)>0.005);
   const pending=pendingStudents.reduce((a,s)=>a+Number(s.pending_amount||0),0);
-  const today=todayISO();
   const feeDueCount=pendingStudents.length;
   const payTotal=state.payments.reduce((a,p)=>a+Number(p.amount||0),0);
 
@@ -859,6 +973,22 @@ function renderDashboard(){
   document.getElementById('kpiPending').textContent=money(pending);
   document.getElementById('kpiDueSoon').textContent=feeDueCount;
   document.getElementById('kpiPayments').textContent=money(payTotal);
+
+  const monthInput=document.getElementById('dashboardMonth');
+  if(monthInput && !monthInput.value)monthInput.value=currentMonthKey();
+  const selectedMonth=monthInput?.value||currentMonthKey();
+
+  const monthStudents=state.students.filter(s=>monthKey(s.joining_date)===selectedMonth);
+  const monthPayments=state.payments.filter(p=>monthKey(p.payment_date)===selectedMonth);
+  const monthCollected=monthPayments.reduce((a,p)=>a+Number(p.amount||0),0);
+  const monthCycles=state.feeCycles.filter(c=>c.cycle_type==='regular' && monthKey(c.cycle_start)===selectedMonth);
+  const monthCycleValue=monthCycles.reduce((a,c)=>a+Number(c.fee_amount||0),0);
+
+  document.getElementById('monthlyOverviewLabel').textContent=monthLabel(selectedMonth);
+  document.getElementById('monthNewStudents').textContent=monthStudents.length;
+  document.getElementById('monthPaymentCount').textContent=monthPayments.length;
+  document.getElementById('monthCollected').textContent=money(monthCollected);
+  document.getElementById('monthCycleValue').textContent=money(monthCycleValue);
 
   const attention=[...pendingStudents]
     .sort((a,b)=>String(feeDueDate(a)).localeCompare(String(feeDueDate(b))))
@@ -876,9 +1006,7 @@ function renderDashboard(){
           ${escapeHtml(s.coach)} • ${escapeHtml(s.batch_timing||'No batch')} •
           cycle ${formatDate(s.cycle_start)}–${formatDate(s.cycle_end)}
         </div>
-        <div class="smalltext" style="margin-top:3px;font-weight:800">
-          ${escapeHtml(deadline.label)}
-        </div>
+        <div class="smalltext" style="margin-top:3px;font-weight:800">${escapeHtml(deadline.label)}</div>
       </div>
       <div style="text-align:right">
         <div style="font-weight:900">${money(s.pending_amount)}</div>
@@ -917,7 +1045,7 @@ function renderStudents(){
     return `<tr>
       <td><b>${escapeHtml(s.student_name)}</b><br><span class="muted">${escapeHtml(s.parent_phone)}</span></td>
       <td>${escapeHtml(s.coach)}<br><span class="muted">${escapeHtml(s.batch_timing||'—')}</span></td>
-      <td>${s.plan_months} mo<br><span class="muted">${money(s.monthly_fee)}/mo</span></td>
+      <td>${s.plan_months} mo<br><span class="muted">Plan fee ${money(planAmount(s))}</span></td>
       <td><span class="status ${st.cls}">${st.label}</span></td>
       <td>${formatDate(s.cycle_start)}<br><span class="muted">to ${formatDate(s.cycle_end)}</span><br><b>Pay by ${formatDate(feeDueDate(s))}</b></td>
       <td><b>${money(s.pending_amount)}</b></td>
@@ -938,7 +1066,7 @@ function renderStudents(){
         <span class="status ${st.cls}">${st.label}</span>
       </div>
       <div class="student-grid">
-        <div class="data-box"><div class="data-label">Plan</div><div class="data-val">${s.plan_months} mo • ${money(s.monthly_fee)}/mo</div></div>
+        <div class="data-box"><div class="data-label">Plan</div><div class="data-val">${s.plan_months} mo • ${money(planAmount(s))}</div></div>
         <div class="data-box"><div class="data-label">Pending</div><div class="data-val">${money(s.pending_amount)}</div></div>
         <div class="data-box"><div class="data-label">Cycle Start</div><div class="data-val">${formatDate(s.cycle_start)}</div></div>
         <div class="data-box"><div class="data-label">Cycle End</div><div class="data-val">${formatDate(s.cycle_end)}</div></div>
@@ -1029,18 +1157,44 @@ function renderMessages(){
 }
 function renderSettings(){
   document.getElementById('setAcademyName').value=state.settings.academy_name||'';
-  document.getElementById('setDefaultFee').value=Number(state.settings.default_monthly_fee||0);
   document.getElementById('setLeadDays').value=FEE_PAYMENT_WINDOW_DAYS;
-  const coaches=Array.isArray(state.settings.coaches)?state.settings.coaches:['Coach 1','Coach 2'];
-  document.getElementById('setCoaches').value=coaches.join(', ');
+  renderCoachEditor();
   populateCoachOptions();
+}
+function coachList(){
+  const list=Array.isArray(state.settings.coaches)?state.settings.coaches.filter(Boolean):[];
+  return list.length?list:['Coach 1','Coach 2'];
+}
+function renderCoachEditor(){
+  const box=document.getElementById('coachEditor');
+  if(!box)return;
+  box.innerHTML=coachList().map((c,i)=>`
+    <div class="coach-edit-row" data-old-coach="${escapeHtml(c)}" style="display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:7px">
+      <input class="coach-name-input" value="${escapeHtml(c)}" placeholder="Coach name">
+      <button class="btn small danger" type="button" onclick="removeCoachEditorRow(this)">Remove</button>
+    </div>
+  `).join('');
+}
+function addCoachEditorRow(){
+  const box=document.getElementById('coachEditor');
+  const row=document.createElement('div');
+  row.className='coach-edit-row';
+  row.dataset.oldCoach='';
+  row.style.cssText='display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:7px';
+  row.innerHTML='<input class="coach-name-input" placeholder="Coach name"><button class="btn small danger" type="button" onclick="removeCoachEditorRow(this)">Remove</button>';
+  box.appendChild(row);
+  row.querySelector('input').focus();
+}
+function removeCoachEditorRow(btn){
+  const rows=[...document.querySelectorAll('#coachEditor .coach-edit-row')];
+  if(rows.length<=1)return toast('Keep at least one coach');
+  btn.closest('.coach-edit-row').remove();
 }
 function populateCoachOptions(selected=''){
   const sel=document.getElementById('fCoach');
-  const coaches=Array.isArray(state.settings.coaches)?state.settings.coaches:['Coach 1','Coach 2'];
+  const coaches=coachList();
   sel.innerHTML=coaches.map(c=>`<option ${c===selected?'selected':''}>${escapeHtml(c)}</option>`).join('');
 }
-
 function openStudentModal(id=''){
   document.getElementById('studentId').value=id;
   const s=id?state.students.find(x=>x.id===id):null;
@@ -1050,8 +1204,8 @@ function openStudentModal(id=''){
   populateCoachOptions(s?.coach||'');
   document.getElementById('fBatch').value=s?.batch_timing||'';
   document.getElementById('fJoin').value=dateOnly(s?.joining_date||todayISO());
-  document.getElementById('fPlan').value=String(s?.plan_months||1);
-  document.getElementById('fMonthlyFee').value=Number(s?.monthly_fee ?? state.settings.default_monthly_fee ?? 0);
+  document.getElementById('fPlan').value=String(Math.max(1,Number(s?.plan_months||1)));
+  document.getElementById('fPlanFee').value=s?Number(planAmount(s)||0):'';
   document.getElementById('fFeePaid').value=String(s?.fee_paid??false);
   document.getElementById('fNotes').value=s?.notes||'';
   document.getElementById('fActive').checked=s?s.active!==false:true;
@@ -1062,14 +1216,12 @@ function editStudent(id){openStudentModal(id)}
 function closeModal(id){document.getElementById(id).classList.remove('open')}
 function updateStudentPreview(){
   const start=document.getElementById('fJoin').value||todayISO();
-  const months=Number(document.getElementById('fPlan').value||1);
-  const fee=Number(document.getElementById('fMonthlyFee').value||0);
+  const months=Math.max(1,Math.floor(Number(document.getElementById('fPlan').value||1)));
+  const fee=Number(document.getElementById('fPlanFee').value||0);
   const paid=document.getElementById('fFeePaid').value==='true';
   document.getElementById('studentPreview').textContent=
-    `Cycle: ${formatDate(start)} to ${formatDate(cycleEnd(start,months))} • Fee pay by: ${formatDate(feeDueDate(start))} • Plan amount: ${money(fee*months)} • Initial pending: ${paid?money(0):money(fee*months)}`;
+    `Cycle: ${formatDate(start)} to ${formatDate(cycleEnd(start,months))} • Fee pay by: ${formatDate(feeDueDate(start))} • ${months} month${months===1?'':'s'} • Total plan fee: ${money(fee)} • Initial pending: ${paid?money(0):money(fee)}`;
 }
-document.getElementById('fJoin').addEventListener('change',updateStudentPreview);
-
 async function saveStudent(){
   const id=document.getElementById('studentId').value;
   const name=document.getElementById('fName').value.trim();
@@ -1077,27 +1229,31 @@ async function saveStudent(){
   const coach=document.getElementById('fCoach').value;
   const batch=document.getElementById('fBatch').value.trim();
   const join=document.getElementById('fJoin').value;
-  const months=Number(document.getElementById('fPlan').value);
-  const fee=Number(document.getElementById('fMonthlyFee').value||0);
+  const months=Math.floor(Number(document.getElementById('fPlan').value||0));
+  const fee=Number(document.getElementById('fPlanFee').value||0);
   const paid=document.getElementById('fFeePaid').value==='true';
   const notes=document.getElementById('fNotes').value.trim();
   const active=document.getElementById('fActive').checked;
 
   if(!name||!phone||!join)return toast('Name, phone and joining date are required');
-  if(![1,3,12].includes(months))return toast('Invalid fee plan');
+  if(!Number.isInteger(months)||months<1||months>60)return toast('Enter a valid number of months');
+  if(fee<0)return toast('Enter a valid fee amount');
 
   try{
     if(id){
       const old=state.students.find(x=>x.id===id);
+      const oldCycle=currentFeeCycle(old);
+      const cycleChanged=dateOnly(old.cycle_start)!==join || Number(old.plan_months)!==months;
+
       const payload={
         student_name:name,parent_phone:phone,coach,batch_timing:batch,
-        joining_date:join,plan_months:months,monthly_fee:fee,
+        joining_date:join,plan_months:months,plan_fee_amount:fee,
+        // legacy compatibility only; no calculation uses monthly_fee anymore
+        monthly_fee:months?fee/months:fee,
         notes,active
       };
 
-      // Do not destroy accumulated pending/cycle history on ordinary edits.
-      // If plan/join date changed, recalculate only current cycle boundaries.
-      if(old && (dateOnly(old.joining_date)!==join || Number(old.plan_months)!==months)){
+      if(cycleChanged){
         payload.cycle_start=join;
         payload.cycle_end=cycleEnd(join,months);
       }
@@ -1107,17 +1263,71 @@ async function saveStudent(){
         query:'?id=eq.'+encodeURIComponent(id),
         body:payload,prefer:'return=minimal'
       });
-      toast('Student updated');
+
+      if(oldCycle){
+        await db('fee_cycles',{
+          method:'PATCH',
+          query:'?id=eq.'+encodeURIComponent(oldCycle.id),
+          body:{
+            cycle_start:join,
+            cycle_end:cycleEnd(join,months),
+            months,
+            fee_amount:fee
+          },
+          prefer:'return=minimal'
+        });
+      }else{
+        await db('fee_cycles',{
+          method:'POST',
+          body:{
+            student_id:id,cycle_type:'regular',cycle_start:join,
+            cycle_end:cycleEnd(join,months),months,fee_amount:fee,
+            amount_paid:paid?fee:0
+          },
+          prefer:'return=minimal'
+        });
+      }
+
+      toast('Student and current fee cycle updated');
     }else{
-      const amount=fee*months;
-      const payload={
-        student_name:name,parent_phone:phone,coach,batch_timing:batch,
-        joining_date:join,plan_months:months,monthly_fee:fee,fee_paid:paid,
-        cycle_start:join,cycle_end:cycleEnd(join,months),
-        pending_amount:paid?0:amount,pending_cycles:paid?0:1,
-        notes,active
-      };
-      await db('students',{method:'POST',body:payload,prefer:'return=minimal'});
+      const created=await db('students',{
+        method:'POST',
+        body:{
+          student_name:name,parent_phone:phone,coach,batch_timing:batch,
+          joining_date:join,plan_months:months,plan_fee_amount:fee,
+          monthly_fee:months?fee/months:fee,
+          fee_paid:paid,cycle_start:join,cycle_end:cycleEnd(join,months),
+          pending_amount:paid?0:fee,pending_cycles:paid?0:1,
+          notes,active
+        },
+        prefer:'return=representation'
+      });
+
+      const student=created?.[0];
+      if(!student)throw new Error('Student was created but no record was returned.');
+
+      await db('fee_cycles',{
+        method:'POST',
+        body:{
+          student_id:student.id,cycle_type:'regular',
+          cycle_start:join,cycle_end:cycleEnd(join,months),
+          months,fee_amount:fee,amount_paid:paid?fee:0
+        },
+        prefer:'return=minimal'
+      });
+
+      if(paid && fee>0){
+        await db('payments',{
+          method:'POST',
+          body:{
+            student_id:student.id,payment_date:join,plan_months:months,
+            period_start:join,period_end:cycleEnd(join,months),
+            amount:fee,payment_method:'Initial',notes:'Marked paid during student registration'
+          },
+          prefer:'return=minimal'
+        });
+      }
+
       toast('Student added');
     }
 
@@ -1125,7 +1335,6 @@ async function saveStudent(){
     await loadAll(false);
   }catch(e){toast('Save failed: '+e.message)}
 }
-
 async function deleteStudent(id){
   const s=state.students.find(x=>x.id===id);
   if(!s)return;
@@ -1141,50 +1350,86 @@ function openPayment(id){
   if(!s)return;
   document.getElementById('payStudentId').value=id;
   document.getElementById('payDate').value=todayISO();
-  document.getElementById('payAmount').value=Number(s.pending_amount||planAmount(s)||0);
+  document.getElementById('payAmount').value=Number(s.pending_amount||0);
   document.getElementById('payMethod').value='UPI';
   document.getElementById('payNotes').value='';
   document.getElementById('payStudentSummary').textContent=
-    `${s.student_name} • Pending ${money(s.pending_amount)} • Pay by ${formatDate(feeDueDate(s))} • Current cycle ${formatDate(s.cycle_start)} to ${formatDate(s.cycle_end)}`;
+    `${s.student_name} • Total outstanding ${money(s.pending_amount)} • Current cycle fee ${money(planAmount(s))} • Pay current cycle by ${formatDate(feeDueDate(s))}`;
   document.getElementById('paymentModal').classList.add('open');
 }
 async function recordPayment(){
   const id=document.getElementById('payStudentId').value;
   const s=state.students.find(x=>x.id===id);
   if(!s)return;
+
   const date=document.getElementById('payDate').value;
   const amount=Number(document.getElementById('payAmount').value||0);
   const method=document.getElementById('payMethod').value;
   const notes=document.getElementById('payNotes').value.trim();
+
   if(!date||amount<=0)return toast('Enter a valid payment date and amount');
 
+  const outstanding=studentOutstanding(s.id);
+  if(amount>outstanding+0.005){
+    return toast(`Payment cannot exceed outstanding amount ${money(outstanding)}`);
+  }
+
   try{
+    let remaining=amount;
+
+    const openCycles=studentCycles(s.id)
+      .filter(c=>cycleOutstanding(c)>0.005)
+      .sort((a,b)=>{
+        if(a.cycle_type!==b.cycle_type)return a.cycle_type==='legacy_balance'?-1:1;
+        return String(a.cycle_start||'0000-00-00').localeCompare(String(b.cycle_start||'0000-00-00'));
+      });
+
+    for(const cycle of openCycles){
+      if(remaining<=0.005)break;
+      const due=cycleOutstanding(cycle);
+      const applied=Math.min(remaining,due);
+      const newPaid=Number(cycle.amount_paid||0)+applied;
+
+      await db('fee_cycles',{
+        method:'PATCH',
+        query:'?id=eq.'+encodeURIComponent(cycle.id),
+        body:{amount_paid:newPaid},
+        prefer:'return=minimal'
+      });
+
+      cycle.amount_paid=newPaid;
+      remaining-=applied;
+    }
+
+    if(remaining>0.01)throw new Error('Could not allocate the full payment.');
+
     await db('payments',{
       method:'POST',
       body:{
         student_id:s.id,payment_date:date,plan_months:Number(s.plan_months),
         period_start:dateOnly(s.cycle_start),period_end:dateOnly(s.cycle_end),
         amount,payment_method:method,notes
-      },prefer:'return=minimal'
-    });
-
-    const remaining=Math.max(0,Number(s.pending_amount||0)-amount);
-    await db('students',{
-      method:'PATCH',
-      query:'?id=eq.'+encodeURIComponent(s.id),
-      body:{
-        pending_amount:remaining,
-        pending_cycles:remaining===0?0:Number(s.pending_cycles||0),
-        fee_paid:remaining===0
       },
       prefer:'return=minimal'
     });
 
-    closeModal('paymentModal'); toast('Payment recorded');
+    const newPending=studentOutstanding(s.id);
+    await db('students',{
+      method:'PATCH',
+      query:'?id=eq.'+encodeURIComponent(s.id),
+      body:{
+        pending_amount:newPending,
+        pending_cycles:unpaidCycleCount(s.id),
+        fee_paid:newPending<=0.005
+      },
+      prefer:'return=minimal'
+    });
+
+    closeModal('paymentModal');
+    toast('Payment recorded without double-counting old payments');
     await loadAll(false);
   }catch(e){toast('Payment failed: '+e.message)}
 }
-
 function whatsappPhone(rawPhone){
   let p=String(rawPhone||'').replace(/\D/g,'');
   if(p.length===10)p='91'+p;
@@ -1212,8 +1457,8 @@ function messageText(s,type){
       '',
       `Coach: ${s.coach}`,
       `Batch: ${s.batch_timing||'To be confirmed'}`,
-      `Fee plan: ${planLabel}`,
-      `Monthly fee: ${money(s.monthly_fee)}`,
+      `Fee period: ${planLabel}`,
+      `Fee amount: ${money(amount)}`,
       `Fee payment due by: ${formatDate(payBy)}`,
       '',
       'Thank you.'
@@ -1227,8 +1472,8 @@ function messageText(s,type){
       `This is a fee schedule reminder from ${academy} for ${s.student_name}.`,
       '',
       `Current fee period: ${formatDate(s.cycle_start)} to ${formatDate(s.cycle_end)}`,
-      `Plan: ${planLabel}`,
-      `Plan amount: ${money(amount)}`,
+      `Number of months: ${s.plan_months}`,
+      `Fee amount: ${money(amount)}`,
       `Please complete the fee payment by ${formatDate(payBy)} (within the first 3 days of this fee cycle).`,
       '',
       'Thank you.'
@@ -1243,19 +1488,15 @@ function messageText(s,type){
     `Joining date: ${formatDate(s.joining_date)}`,
     `Coach: ${s.coach}`,
     `Batch: ${s.batch_timing||'To be confirmed'}`,
-    `Plan: ${planLabel}`,
-    `Monthly fee: ${money(s.monthly_fee)}`,
-    `Plan amount: ${money(amount)}`,
+    `Number of months: ${s.plan_months}`,
+    `Fee amount: ${money(amount)}`,
     `Current fee period: ${formatDate(s.cycle_start)} to ${formatDate(s.cycle_end)}`,
     `Pay by: ${formatDate(payBy)} (within the first 3 days of the fee cycle)`,
     `Pending amount: ${money(s.pending_amount)}`,
-    `Fee Paid: ${Number(s.pending_amount||0)===0?'Yes':'No'}`
+    `Fee Paid: ${Number(s.pending_amount||0)<=0.005?'Yes':'No'}`
   ];
 
-  if(s.notes){
-    lines.push(`Notes: ${s.notes}`);
-  }
-
+  if(s.notes)lines.push(`Notes: ${s.notes}`);
   lines.push('', 'Thank you.');
   return lines.join(LF);
 }
@@ -1284,19 +1525,46 @@ async function sendWhatsApp(id,type){
 
 async function saveSettings(){
   const academy=document.getElementById('setAcademyName').value.trim()||'Hauxing Table Tennis Academy';
-  const fee=Number(document.getElementById('setDefaultFee').value||0);
   const lead=FEE_PAYMENT_WINDOW_DAYS;
-  const coaches=document.getElementById('setCoaches').value.split(',').map(x=>x.trim()).filter(Boolean);
+
+  const rows=[...document.querySelectorAll('#coachEditor .coach-edit-row')];
+  const mappings=rows.map(row=>({
+    oldName:String(row.dataset.oldCoach||'').trim(),
+    newName:String(row.querySelector('.coach-name-input')?.value||'').trim()
+  })).filter(x=>x.newName);
+
+  const coaches=[...new Set(mappings.map(x=>x.newName))];
   if(!coaches.length)return toast('Add at least one coach');
+
   try{
+    // Rename existing student assignments before saving the new coach list.
+    for(const map of mappings){
+      if(map.oldName && map.oldName!==map.newName){
+        await db('students',{
+          method:'PATCH',
+          query:'?coach=eq.'+encodeURIComponent(map.oldName),
+          body:{coach:map.newName},
+          prefer:'return=minimal'
+        });
+      }
+    }
+
     await db('academy_settings',{
-      method:'PATCH',query:'?id=eq.1',
-      body:{academy_name:academy,default_monthly_fee:fee,reminder_lead_days:lead,coaches},
+      method:'PATCH',
+      query:'?id=eq.1',
+      body:{
+        academy_name:academy,
+        reminder_lead_days:lead,
+        coaches
+      },
       prefer:'return=minimal'
     });
-    toast('Settings saved'); await loadAll(false);
+
+    toast('Settings and coach names saved');
+    await loadAll(false);
   }catch(e){toast('Settings failed: '+e.message)}
 }
+document.getElementById('dashboardMonth').value=currentMonthKey();
 
 (async function boot(){
   session=loadSession();
