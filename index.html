@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Hauxing Table Tennis Academy v1.11</title>
+<title>Hauxing Table Tennis Academy v1.12</title>
 <style>
 :root{
   --bg:#f5f5f1;--card:#fff;--ink:#111;--muted:#71716b;--line:#d9d9d3;
@@ -261,7 +261,7 @@ tr:last-child td{border-bottom:0}
         <div class="brand-logo">H</div>
         <div>
           <div class="brand-title" id="brandTitle">Hauxing Table Tennis Academy</div>
-          <div class="brand-sub">Cloud fee & student management • v1.11</div>
+          <div class="brand-sub">Cloud fee & student management • v1.12</div>
         </div>
       </div>
       <div class="top-actions">
@@ -1810,23 +1810,49 @@ function openStudentPortfolio(id){
 
   const currentCycle=currentFeeCycle(s);
 
-  const pays=currentCycle
+  const ledgerPaid=Number(currentCycle?.amount_paid||0);
+
+  // Current-cycle ledger is authoritative. Old payment rows can have stale
+  // period_start / period_end values from earlier app versions.
+  const candidatePays=currentCycle
     ? effectivePayments().filter(p=>
         p.student_id===s.id &&
         dateOnly(p.period_start)===dateOnly(currentCycle.cycle_start) &&
-        dateOnly(p.period_end)===dateOnly(currentCycle.cycle_end)
-      )
+        dateOnly(p.period_end)===dateOnly(currentCycle.cycle_end) &&
+        dateOnly(p.payment_date)>=dateOnly(currentCycle.cycle_start) &&
+        dateOnly(p.payment_date)<=dateOnly(currentCycle.cycle_end)
+      ).sort((a,b)=>String(a.payment_date).localeCompare(String(b.payment_date)))
     : [];
 
-  document.getElementById('portfolioPayments').innerHTML=pays.length?pays.map(p=>`
-    <div class="student-row">
-      <div>
-        <div class="student-name">${formatDate(p.payment_date)}</div>
-        <div class="muted">${escapeHtml(p.payment_method||'')} ${p.notes?'• '+escapeHtml(p.notes):''}</div>
-      </div>
-      <b>${money(p.amount)}</b>
-    </div>`).join('')
-    : '<div class="empty">No payment recorded for the current fee cycle.</div>';
+  let running=0;
+  const pays=[];
+
+  if(ledgerPaid>0.005){
+    for(const p of candidatePays){
+      const amt=Number(p.amount||0);
+      if(amt<=0)continue;
+
+      if(running+amt <= ledgerPaid+0.005){
+        pays.push(p);
+        running+=amt;
+      }
+    }
+  }
+
+  document.getElementById('portfolioPayments').innerHTML=
+    ledgerPaid<=0.005
+      ? '<div class="empty">No payment recorded for the current fee cycle.</div>'
+      : pays.length
+        ? pays.map(p=>`
+          <div class="student-row">
+            <div>
+              <div class="student-name">${formatDate(p.payment_date)}</div>
+              <div class="muted">${escapeHtml(p.payment_method||'')} ${p.notes?'• '+escapeHtml(p.notes):''}</div>
+            </div>
+            <b>${money(p.amount)}</b>
+          </div>`).join('') +
+          `<div class="note" style="margin-top:8px">Current-cycle ledger paid: <b>${money(ledgerPaid)}</b></div>`
+        : `<div class="note">Current-cycle ledger shows <b>${money(ledgerPaid)}</b> paid, but no valid payment transaction matches this cycle. The fee-cycle ledger remains the source of truth.</div>`;
 
 
   document.getElementById('portfolioCycles').innerHTML=currentCycle
