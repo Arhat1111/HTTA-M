@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Hauxing Table Tennis Academy v1.9</title>
+<title>Hauxing Table Tennis Academy v1.10</title>
 <style>
 :root{
   --bg:#f5f5f1;--card:#fff;--ink:#111;--muted:#71716b;--line:#d9d9d3;
@@ -261,7 +261,7 @@ tr:last-child td{border-bottom:0}
         <div class="brand-logo">H</div>
         <div>
           <div class="brand-title" id="brandTitle">Hauxing Table Tennis Academy</div>
-          <div class="brand-sub">Cloud fee & student management • v1.9</div>
+          <div class="brand-sub">Cloud fee & student management • v1.10</div>
         </div>
       </div>
       <div class="top-actions">
@@ -796,16 +796,26 @@ function cycleOutstanding(cycle){return Math.max(0,Number(cycle?.fee_amount||0)-
 function studentCycles(studentId){
   return state.feeCycles.filter(c=>c.student_id===studentId);
 }
+function currentFeeCycle(student){
+  if(!student)return null;
+  const matches=state.feeCycles
+    .filter(c=>c.student_id===student.id && c.cycle_type==='regular')
+    .filter(c=>
+      dateOnly(c.cycle_start)===dateOnly(student.cycle_start) ||
+      dateOnly(c.cycle_end)===dateOnly(student.cycle_end)
+    )
+    .sort((a,b)=>String(b.updated_at||b.created_at||'').localeCompare(String(a.updated_at||a.created_at||'')));
+  return matches[0]||null;
+}
 function studentOutstanding(studentId){
-  return studentCycles(studentId).reduce((sum,c)=>sum+cycleOutstanding(c),0);
+  const student=state.students.find(s=>s.id===studentId);
+  const current=currentFeeCycle(student);
+  // Live outstanding is CURRENT FEE CYCLE ONLY.
+  // Historical/legacy rows must never inflate the student's current balance.
+  return current ? cycleOutstanding(current) : Math.max(0,Number(student?.pending_amount||0));
 }
 function unpaidCycleCount(studentId){
-  return studentCycles(studentId).filter(c=>cycleOutstanding(c)>0.005).length;
-}
-function currentFeeCycle(student){
-  return state.feeCycles.find(c=>c.student_id===student.id && c.cycle_type==='regular' && dateOnly(c.cycle_start)===dateOnly(student.cycle_start))
-    || state.feeCycles.find(c=>c.student_id===student.id && c.cycle_type==='regular' && dateOnly(c.cycle_end)===dateOnly(student.cycle_end))
-    || null;
+  return studentOutstanding(studentId)>0.005 ? 1 : 0;
 }
 function existingStudentIds(){
   return new Set(state.students.map(s=>s.id));
@@ -1678,7 +1688,7 @@ function openPayment(id){
   document.getElementById('payMethod').value='UPI';
   document.getElementById('payNotes').value='';
   document.getElementById('payStudentSummary').textContent=
-    `${s.student_name} • Total outstanding ${money(s.pending_amount)} • Current cycle fee ${money(planAmount(s))} • Pay current cycle by ${formatDate(feeDueDate(s))}`;
+    `${s.student_name} • Current-cycle outstanding ${money(studentOutstanding(s.id))} • Current cycle fee ${money(planAmount(s))} • Pay current cycle by ${formatDate(feeDueDate(s))}`;
   document.getElementById('paymentModal').classList.add('open');
 }
 async function recordPayment(){
@@ -1695,37 +1705,25 @@ async function recordPayment(){
 
   const outstanding=studentOutstanding(s.id);
   if(amount>outstanding+0.005){
-    return toast(`Payment cannot exceed outstanding amount ${money(outstanding)}`);
+    return toast(`Payment cannot exceed current-cycle outstanding amount ${money(outstanding)}`);
   }
 
   try{
-    let remaining=amount;
+    const cycle=currentFeeCycle(s);
+    if(!cycle)throw new Error('Current fee cycle is missing. Refresh the app or run the v1.10 repair SQL.');
 
-    const openCycles=studentCycles(s.id)
-      .filter(c=>cycleOutstanding(c)>0.005)
-      .sort((a,b)=>{
-        if(a.cycle_type!==b.cycle_type)return a.cycle_type==='legacy_balance'?-1:1;
-        return String(a.cycle_start||'0000-00-00').localeCompare(String(b.cycle_start||'0000-00-00'));
-      });
+    const due=cycleOutstanding(cycle);
+    const applied=Math.min(amount,due);
+    const newPaid=Number(cycle.amount_paid||0)+applied;
 
-    for(const cycle of openCycles){
-      if(remaining<=0.005)break;
-      const due=cycleOutstanding(cycle);
-      const applied=Math.min(remaining,due);
-      const newPaid=Number(cycle.amount_paid||0)+applied;
+    await db('fee_cycles',{
+      method:'PATCH',
+      query:'?id=eq.'+encodeURIComponent(cycle.id),
+      body:{amount_paid:newPaid},
+      prefer:'return=minimal'
+    });
 
-      await db('fee_cycles',{
-        method:'PATCH',
-        query:'?id=eq.'+encodeURIComponent(cycle.id),
-        body:{amount_paid:newPaid},
-        prefer:'return=minimal'
-      });
-
-      cycle.amount_paid=newPaid;
-      remaining-=applied;
-    }
-
-    if(remaining>0.01)throw new Error('Could not allocate the full payment.');
+    cycle.amount_paid=newPaid;
 
     await db('payments',{
       method:'POST',
@@ -1784,7 +1782,7 @@ function openStudentPortfolio(id){
     `${s.coach||'No coach'} • ${s.batch_timing||'No batch'} • Joined ${formatDate(s.joining_date)}`;
   document.getElementById('pfPlan').textContent=`${s.plan_months} month${Number(s.plan_months)===1?'':'s'}`;
   document.getElementById('pfFee').textContent=money(planAmount(s));
-  document.getElementById('pfOutstanding').textContent=money(s.pending_amount);
+  document.getElementById('pfOutstanding').textContent=money(studentOutstanding(s.id));
   document.getElementById('pfPayBy').textContent=formatDate(feeDueDate(s));
 
   const current=currentPlanMonth(s);
@@ -1893,8 +1891,8 @@ function messageText(s,type){
     `Fee amount: ${money(amount)}`,
     `Current fee period: ${formatDate(s.cycle_start)} to ${formatDate(s.cycle_end)}`,
     `Pay by: ${formatDate(payBy)} (within the first 3 days of the fee cycle)`,
-    `Pending amount: ${money(s.pending_amount)}`,
-    `Fee Paid: ${Number(s.pending_amount||0)<=0.005?'Yes':'No'}`
+    `Pending amount: ${money(studentOutstanding(s.id))}`,
+    `Fee Paid: ${studentOutstanding(s.id)<=0.005?'Yes':'No'}`
   ];
 
   if(s.notes)lines.push(`Notes: ${s.notes}`);
@@ -2047,6 +2045,6 @@ async function saveSettings(){
   document.getElementById('loginScreen').classList.remove('hidden');
 })();
 </script>
-<div style="display:none" id="HTTA_BUILD_1_9">v1.9</div>
+<div style="display:none" id="HTTA_BUILD_1_10">v1.10</div>
 </body>
 </html>
