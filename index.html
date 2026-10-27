@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Hauxing Table Tennis Academy v1.10</title>
+<title>Hauxing Table Tennis Academy v1.11</title>
 <style>
 :root{
   --bg:#f5f5f1;--card:#fff;--ink:#111;--muted:#71716b;--line:#d9d9d3;
@@ -261,7 +261,7 @@ tr:last-child td{border-bottom:0}
         <div class="brand-logo">H</div>
         <div>
           <div class="brand-title" id="brandTitle">Hauxing Table Tennis Academy</div>
-          <div class="brand-sub">Cloud fee & student management • v1.10</div>
+          <div class="brand-sub">Cloud fee & student management • v1.11</div>
         </div>
       </div>
       <div class="top-actions">
@@ -724,8 +724,8 @@ tr:last-child td{border-bottom:0}
     </div>
 
     <div class="card">
-      <div class="card-title">Payments</div>
-      <div id="portfolioPayments"></div>
+      <div class="card-title">Current Cycle Payments</div>
+      <div id="portfolioPayments"></div><div class="smalltext muted" style="margin-top:8px">Older payments remain available in the Fees payment history and are not included in the current cycle.</div>
     </div>
 
     <div class="card">
@@ -1703,6 +1703,9 @@ async function recordPayment(){
 
   if(!date||amount<=0)return toast('Enter a valid payment date and amount');
 
+  const currentCycle=currentFeeCycle(s);
+  if(!currentCycle)return toast('No current fee cycle found for this student');
+
   const outstanding=studentOutstanding(s.id);
   if(amount>outstanding+0.005){
     return toast(`Payment cannot exceed current-cycle outstanding amount ${money(outstanding)}`);
@@ -1729,7 +1732,7 @@ async function recordPayment(){
       method:'POST',
       body:{
         student_id:s.id,payment_date:date,plan_months:Number(s.plan_months),
-        period_start:dateOnly(s.cycle_start),period_end:dateOnly(s.cycle_end),
+        period_start:dateOnly(currentCycle.cycle_start),period_end:dateOnly(currentCycle.cycle_end),
         amount,payment_method:method,notes
       },
       prefer:'return=minimal'
@@ -1805,14 +1808,27 @@ function openStudentPortfolio(id){
       </div>`;
   }).join('');
 
-  const pays=effectivePayments().filter(p=>p.student_id===s.id);
+  const currentCycle=currentFeeCycle(s);
+
+  const pays=currentCycle
+    ? effectivePayments().filter(p=>
+        p.student_id===s.id &&
+        dateOnly(p.period_start)===dateOnly(currentCycle.cycle_start) &&
+        dateOnly(p.period_end)===dateOnly(currentCycle.cycle_end)
+      )
+    : [];
+
   document.getElementById('portfolioPayments').innerHTML=pays.length?pays.map(p=>`
     <div class="student-row">
-      <div><div class="student-name">${formatDate(p.payment_date)}</div><div class="muted">${escapeHtml(p.payment_method||'')} ${p.notes?'• '+escapeHtml(p.notes):''}</div></div>
+      <div>
+        <div class="student-name">${formatDate(p.payment_date)}</div>
+        <div class="muted">${escapeHtml(p.payment_method||'')} ${p.notes?'• '+escapeHtml(p.notes):''}</div>
+      </div>
       <b>${money(p.amount)}</b>
-    </div>`).join(''):'<div class="empty">No payments recorded for this student.</div>';
+    </div>`).join('')
+    : '<div class="empty">No payment recorded for the current fee cycle.</div>';
 
-  const currentCycle=currentFeeCycle(s);
+
   document.getElementById('portfolioCycles').innerHTML=currentCycle
     ? `<div class="student-row">
         <div>
