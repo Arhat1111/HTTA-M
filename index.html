@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Hauxing Table Tennis Academy v1.13</title>
+<title>Hauxing Table Tennis Academy v1.14</title>
 <style>
 :root{
   --bg:#f5f5f1;--card:#fff;--ink:#111;--muted:#71716b;--line:#d9d9d3;
@@ -263,7 +263,7 @@ tr:last-child td{border-bottom:0}
         <div class="brand-logo">H</div>
         <div>
           <div class="brand-title" id="brandTitle">Hauxing Table Tennis Academy</div>
-          <div class="brand-sub">Cloud fee & student management • v1.13</div>
+          <div class="brand-sub">Cloud fee & student management • v1.14</div>
         </div>
       </div>
       <div class="top-actions">
@@ -416,7 +416,7 @@ tr:last-child td{border-bottom:0}
         <div class="page-head">
           <div>
             <div class="page-title">Monthly Overview</div>
-            <div class="page-sub">New students, fee cycles and collections for one selected month.</div>
+            <div class="page-sub">New students, active players, fee cycles and collections for one selected month.</div>
           </div>
           <div class="actions">
             <input id="monthlyPageMonth" type="month" style="width:auto;min-width:155px" onchange="renderMonthlyPage()">
@@ -425,9 +425,9 @@ tr:last-child td{border-bottom:0}
 
         <div class="monthly-kpi-grid">
           <div class="kpi">
-            <div class="kpi-label">Active Students</div>
+            <div class="kpi-label">Active Players</div>
             <div class="kpi-value" id="mpActiveStudents">0</div>
-            <div class="kpi-note">active by end of selected month</div>
+            <div class="kpi-note">fee plan active in selected month</div>
           </div>
           <div class="kpi">
             <div class="kpi-label">New Students</div>
@@ -459,6 +459,16 @@ tr:last-child td{border-bottom:0}
             </div>
           </div>
           <div id="monthlyStudentsList"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">Active Players</div>
+              <div class="smalltext muted" id="mpActivePlayersLabel">Players whose fee cycle overlaps the selected month.</div>
+            </div>
+          </div>
+          <div id="monthlyActivePlayersList"></div>
         </div>
 
         <div class="card">
@@ -1231,6 +1241,13 @@ function renderMonthlyPage(){
   const selected=input.value||currentMonthKey();
 
   const [selectedYear,selectedMonthNumber]=selected.split('-').map(Number);
+
+  const selectedMonthStartISO=[
+    selectedYear,
+    String(selectedMonthNumber).padStart(2,'0'),
+    '01'
+  ].join('-');
+
   const selectedMonthEnd=new Date(selectedYear,selectedMonthNumber,0);
   const selectedMonthEndISO=[
     selectedMonthEnd.getFullYear(),
@@ -1238,11 +1255,32 @@ function renderMonthlyPage(){
     String(selectedMonthEnd.getDate()).padStart(2,'0')
   ].join('-');
 
-  const activeStudents=state.students.filter(s=>
-    s.active &&
-    dateOnly(s.joining_date) &&
-    dateOnly(s.joining_date)<=selectedMonthEndISO
-  );
+  // "Active Player" means the player has a REGULAR fee cycle that overlaps
+  // the selected calendar month. This intentionally does NOT use the current
+  // student active/inactive toggle, because historical months must remain
+  // accurate even after a later renewal or status change.
+  const overlappingCycles=effectiveFeeCycles()
+    .filter(c=>
+      c.cycle_type==='regular' &&
+      dateOnly(c.cycle_start) &&
+      dateOnly(c.cycle_end) &&
+      dateOnly(c.cycle_start)<=selectedMonthEndISO &&
+      dateOnly(c.cycle_end)>=selectedMonthStartISO
+    )
+    .sort((a,b)=>String(b.cycle_start).localeCompare(String(a.cycle_start)));
+
+  // One Active Players row per student. If legacy data contains overlapping
+  // regular cycles, use the most recently started cycle for that month.
+  const activePlayerMap=new Map();
+  for(const cycle of overlappingCycles){
+    if(!activePlayerMap.has(cycle.student_id)){
+      const student=state.students.find(s=>s.id===cycle.student_id);
+      if(student)activePlayerMap.set(cycle.student_id,{student,cycle});
+    }
+  }
+
+  const activePlayers=[...activePlayerMap.values()]
+    .sort((a,b)=>String(a.student.student_name).localeCompare(String(b.student.student_name)));
 
   const newStudents=state.students
     .filter(s=>monthKey(s.joining_date)===selected)
@@ -1259,7 +1297,7 @@ function renderMonthlyPage(){
   const collected=payments.reduce((sum,p)=>sum+Number(p.amount||0),0);
   const feeStarted=cycles.reduce((sum,c)=>sum+Number(c.fee_amount||0),0);
 
-  document.getElementById('mpActiveStudents').textContent=activeStudents.length;
+  document.getElementById('mpActiveStudents').textContent=activePlayers.length;
   document.getElementById('mpNewStudents').textContent=newStudents.length;
   document.getElementById('mpPaymentCount').textContent=payments.length;
   document.getElementById('mpCollected').textContent=money(collected);
@@ -1278,6 +1316,39 @@ function renderMonthlyPage(){
         <div class="monthly-amount"><button class="btn small" onclick="openStudentPortfolio('${s.id}')">Portfolio</button></div>
       </div>`).join('')
     : '<div class="empty">No new students joined in this month.</div>';
+
+  document.getElementById('mpActivePlayersLabel').textContent=
+    `${monthLabel(selected)} • players with a fee cycle covering this month`;
+
+  document.getElementById('monthlyActivePlayersList').innerHTML=activePlayers.length
+    ? activePlayers.map(({student:s,cycle:c})=>{
+        const isNew=monthKey(s.joining_date)===selected;
+        return `
+          <div class="monthly-row">
+            <div class="monthly-main">
+              <div class="monthly-title">
+                ${escapeHtml(s.student_name)}
+                ${isNew?'<span class="status paid" style="margin-left:6px">NEW STUDENT</span>':''}
+              </div>
+              <div class="monthly-meta">
+                ${escapeHtml(s.coach||'No coach')} • ${escapeHtml(s.batch_timing||'No batch')}
+                • Fee cycle ${formatDate(c.cycle_start)} to ${formatDate(c.cycle_end)}
+              </div>
+            </div>
+            <div>
+              <div class="data-label">Plan</div>
+              <div class="data-val">${c.months} month${Number(c.months)===1?'':'s'}</div>
+            </div>
+            <div>
+              <div class="data-label">Fee / Outstanding</div>
+              <div class="data-val">${money(c.fee_amount)} / ${money(cycleOutstanding(c))}</div>
+            </div>
+            <div class="monthly-amount">
+              <button class="btn small" onclick="openStudentPortfolio('${s.id}')">Portfolio</button>
+            </div>
+          </div>`;
+      }).join('')
+    : '<div class="empty">No players had an active fee plan in this month.</div>';
 
   document.getElementById('monthlyPaymentsList').innerHTML=payments.length
     ? payments.map(p=>{
